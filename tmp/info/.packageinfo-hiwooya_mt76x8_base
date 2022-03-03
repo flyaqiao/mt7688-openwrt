@@ -1,0 +1,20 @@
+Source-Makefile: package/hiwooya/mt76x8_base/Makefile
+
+Package: mt76x8_base
+Version: V1
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread @(TARGET_ramips_mt76x8)
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: utils
+Category: Utilities
+Repository: base
+Title: mt76x8_base file
+Maintainer: 
+Source: 
+Type: ipkg
+Description: 	For MT7688 or MT7628 machine's base_file add some files
+
+@@
+
+

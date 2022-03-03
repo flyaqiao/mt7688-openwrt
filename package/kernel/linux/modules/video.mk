@@ -221,6 +221,22 @@ endef
 $(eval $(call KernelPackage,fb-tft-ili9486))
 
 
+define KernelPackage/fb-tft-ili9488
+  SUBMENU:=$(VIDEO_MENU)
+  TITLE:=FB driver for the ILI9488 LCD Controller
+  DEPENDS:=+kmod-fb-tft
+  KCONFIG:=CONFIG_FB_TFT_ILI9488
+  FILES:=$(LINUX_DIR)/drivers/staging/fbtft/fb_ili9488.ko
+  AUTOLOAD:=$(call AutoLoad,09,fb_ili9488)
+endef
+
+define KernelPackage/fb-tft-ili9488/description
+  FB driver for the ILI9488 LCD Controller
+endef
+
+$(eval $(call KernelPackage,fb-tft-ili9488))
+
+
 define KernelPackage/drm
   SUBMENU:=$(VIDEO_MENU)
   TITLE:=Direct Rendering Manager (DRM) support

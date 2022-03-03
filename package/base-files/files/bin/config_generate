@@ -168,7 +168,6 @@ generate_network() {
 			netm=${netmask:-"255.255.255.0"}
 
 			uci -q batch <<-EOF
-				set network.$1.type='bridge'
 				set network.$1.proto='static'
 				set network.$1.ipaddr='$ipad'
 				set network.$1.netmask='$netm'
@@ -302,7 +301,7 @@ generate_static_system() {
 	uci -q batch <<-EOF
 		delete system.@system[0]
 		add system system
-		set system.@system[-1].hostname='Hiwooya'
+		set system.@system[-1].hostname='OpenWrt'
 		set system.@system[-1].timezone='UTC'
 		set system.@system[-1].ttylogin='0'
 		set system.@system[-1].log_size='64'
