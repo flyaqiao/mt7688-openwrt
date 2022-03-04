@@ -6,6 +6,7 @@ w | 1)
         uci delete network.@device[0].ports
 		uci set network.wan.ifname=wan
 		uci set network.wan6.ifname=wan
+        uci add_list network.@device[0].ports=
         uci commit
         /etc/init.d/network restart      
         ;;
