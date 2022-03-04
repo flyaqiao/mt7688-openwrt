@@ -23,7 +23,7 @@ endef
 
 # Uncomment portion below for Kamikaze and delete DESCRIPTION variable above
 define Package/$(PKG_NAME)/description
-	For MT7688 or MT7628 machine's base_file add some files
+	For MT7621 or MT7628 machine's base_file add some files
 endef
 
 
