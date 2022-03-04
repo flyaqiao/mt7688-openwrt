@@ -1,7 +1,5 @@
 #!/bin/sh
 
-basepath="/proc/device-tree"
-
 if [ -n "$1" ];then
 
 wifi down
