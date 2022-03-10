@@ -4,8 +4,8 @@ case $1 in
 w | 1)
         echo "mode W"
         uci delete network.@device[0].ports
-		uci set network.wan.ifname=wan
-		uci set network.wan6.ifname=wan
+		uci set network.wan.device=wan
+		uci set network.wan6.device=wan
         uci add_list network.@device[0].ports=
         uci commit
         /etc/init.d/network restart      
