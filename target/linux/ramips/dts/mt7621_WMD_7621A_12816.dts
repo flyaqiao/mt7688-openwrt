@@ -21,6 +21,14 @@
 	};
 };
 
+&uartlite2 {
+	status = "okay";
+};
+
+&uartlite3 {
+	status = "okay";
+};
+
 &spi0 {
 	status = "okay";
 
@@ -123,7 +131,7 @@
 
 &state_default {
 	gpio {
-		groups = "gpio", "uart3", "wdt", "rgmii2";
+		groups = "gpio", "wdt", "rgmii2", "jtag";
 		function = "gpio";
 	};
 };
