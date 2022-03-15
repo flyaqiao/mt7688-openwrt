@@ -21,6 +21,14 @@
 	};
 };
 
+&uartlite2 {
+	status = "okay";
+};
+
+&uartlite3 {
+	status = "okay";
+};
+
 &spi0 {
 	status = "okay";
 
@@ -133,7 +141,6 @@
 			status = "okay";
 			label = "lan3";
 		};
-
 		port@4 {
 			status = "okay";
 			label = "lan4";
@@ -143,7 +150,7 @@
 
 &state_default {
 	gpio {
-		groups = "gpio", "uart3", "wdt", "rgmii2";
+		groups = "gpio", "wdt", "rgmii2", "jtag";
 		function = "gpio";
 	};
 };
@@ -165,4 +172,3 @@
 &sdhci {
 	status = "okay";
 };
-
