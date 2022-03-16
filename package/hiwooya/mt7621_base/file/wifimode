@@ -19,7 +19,7 @@ apsta)
 	uci set wireless.sta.device='radio0'
 	uci set wireless.sta.mode='sta'
 	uci set wireless.sta.network='wwan'
-    uci add_list firewall.@zone[1].network='wwan'
+        uci add_list firewall.@zone[1].network='wwan'
 	uci set wireless.sta.encryption='psk'
 
 	uci set network.wwan=interface
