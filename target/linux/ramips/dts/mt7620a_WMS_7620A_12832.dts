@@ -34,6 +34,17 @@
 			linux,code = <KEY_RESTART>;
 		};
 	};
+
+	//wooya pcie 4g使能
+	gpio_export {
+		compatible = "gpio-export";
+		#size-cells = <0>;
+		pciepower{
+				gpio-export,name = "pciepower";
+				gpio-export,output = <0>;
+				gpios = <&gpio1 12 GPIO_ACTIVE_LOW>;
+			};
+	};
 };
 
 &spi0 {
@@ -76,10 +87,6 @@
 	};
 };
 
-&gpio1 {
-	status = "okay";
-};
-
 &gpio2 {
 	status = "okay";
 };
@@ -120,7 +127,7 @@ ralink,port4 = "ephy";
 
 &state_default {
 	gpio {
-		groups = "uartf", "wled", "spi refclk", "pa","wdt","pcie";
+		groups = "uartf", "wled", "spi refclk", "pa", "wdt", "pcie";
 		function = "gpio";
 	};
 };
