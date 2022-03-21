@@ -35,7 +35,7 @@
 		};
 	};
 
-	//wooya pcie 4g使能
+	//wooya pcie 4g enable
 	gpio_export {
 		compatible = "gpio-export";
 		#size-cells = <0>;
