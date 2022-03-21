@@ -120,7 +120,7 @@ ralink,port4 = "ephy";
 
 &state_default {
 	gpio {
-		groups = "uartf", "wled", "spi refclk", "pa","wdt";
+		groups = "uartf", "wled", "spi refclk", "pa","wdt","pcie";
 		function = "gpio";
 	};
 };
