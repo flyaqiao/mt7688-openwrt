@@ -436,7 +436,6 @@ static int ns2009_probe(struct i2c_client *client,
 	struct ns2009 *ts;
 	struct input_dev *input_dev;
 	int err;
-	printk("*****************%s\n" , __func__);
 
 
 	if (!i2c_check_functionality(client->adapter,
