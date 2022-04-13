@@ -15,7 +15,7 @@
 	};
 
 	chosen {
-		bootargs = "console=ttyS0,57600";
+		bootargs = "console=ttyS1,57600";
 	};
 
 	leds {
@@ -33,17 +33,6 @@
 			gpios = <&gpio0 17 GPIO_ACTIVE_LOW>;
 			linux,code = <KEY_RESTART>;
 		};
-	};
-
-	//wooya pcie 4g enable
-	gpio_export {
-		compatible = "gpio-export";
-		#size-cells = <0>;
-		pciepower{
-				gpio-export,name = "pciepower";
-				gpio-export,output = <0>;
-				gpios = <&gpio1 12 GPIO_ACTIVE_LOW>;
-			};
 	};
 };
 
@@ -86,6 +75,7 @@
 		};
 	};
 };
+
 &gpio1 {
 	status = "okay";
 };
@@ -128,9 +118,18 @@ ralink,port4 = "ephy";
 	ralink,mtd-eeprom = <&factory 0x0>;
 };
 
+&uart {
+        status = "okay";
+};
+
 &state_default {
 	gpio {
-		groups = "uartf", "wled", "spi refclk", "pa", "wdt", "pcie";
+		groups =  "wled", "pcie", "pa","wdt";
 		function = "gpio";
 	};
+	uartf_gpio {
+                groups = "uartf";
+                function = "gpio uartf";
+        };
+
 };
