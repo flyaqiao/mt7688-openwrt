@@ -4,16 +4,16 @@
 #include <dt-bindings/input/input.h>
 
 / {
-	compatible = "Wooya,wms-7620a", "ralink,mt7620a-soc";
-	model = "WMS-7620A-12816";
-
+	compatible = "wooya,wms-7620a", "ralink,mt7620a-soc";
+	model = "WMS-7620A-12864";
+	
 	aliases {
 		led-boot = &led_wlan;
 		led-failsafe = &led_wlan;
 		led-running = &led_wlan;
 		led-upgrade = &led_wlan;
 	};
-	
+
 	chosen {
 		bootargs = "console=ttyS1,57600";
 	};
@@ -70,7 +70,7 @@
 			partition@50000 {
 				compatible = "denx,uimage";
 				label = "firmware";
-				reg = <0x50000 0xfb0000>;
+				reg = <0x50000 0x3fb0000>;
 			};
 		};
 	};
@@ -92,10 +92,6 @@
 	status = "okay";
 };
 
-&spi1 {
-	status = "okay";
-};
-
 &i2s {
 	status = "okay";
 	pinctrl-names = "default";
@@ -103,10 +99,6 @@
 };
 
 &ehci {
-	status = "okay";
-};
-
-&sdhci{
 	status = "okay";
 };
 
@@ -127,16 +119,17 @@ ralink,port4 = "ephy";
 };
 
 &uart {
-	status = "okay";
+        status = "okay";
 };
 
 &state_default {
 	gpio {
-		groups =   "wled", "pa", "wdt", "pcie";
+		groups =  "wled", "pcie", "pa","wdt";
 		function = "gpio";
 	};
 	uartf_gpio {
-		groups = "uartf";
-		function = "gpio uartf";
-	};
+                groups = "uartf";
+                function = "gpio uartf";
+        };
+
 };

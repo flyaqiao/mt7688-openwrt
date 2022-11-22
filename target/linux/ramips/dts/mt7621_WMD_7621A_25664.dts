@@ -5,7 +5,7 @@
 
 / {
 	compatible = "Wooya,wms-7621a", "mediatek,mt7621-soc";
-	model = "WMD-7621Ultra-12816";
+	model = "WMD-7621A-25664";
 
 	chosen {
 		bootargs = "console=ttyS0,57600";
@@ -63,12 +63,11 @@
 			partition@50000 {
 				compatible = "denx,uimage";
 				label = "firmware";
-				reg = <0x50000 0xfb0000>;
+				reg = <0x50000 0x3fb0000>;
 			};
 		};
 	};
 
-	
 	ili9488@1 {
 		status = "okay";
 		compatible = "ilitek,ili9488";
@@ -93,25 +92,6 @@
 		ti,poll-period = <10>;
 	};
 };
-
-&pcie {
-	status = "okay";
-};
-
-&pcie0 {
-	mt76@0,0 {
-		reg = <0x0000 0 0 0 0>;
-		mediatek,mtd-eeprom = <&factory 0x0000>;
-	};
-};
-
-// &pcie1 {
-// 	mt76@0,0 {
-// 		reg = <0x0000 0 0 0 0>;
-// 		mediatek,mtd-eeprom = <&factory 0x8000>;
-// 		ieee80211-freq-limit = <5000000 6000000>;
-// 	};
-// };
 
 &gmac0 {
 	nvmem-cells = <&factory 0xe000>;
@@ -141,6 +121,7 @@
 			status = "okay";
 			label = "lan3";
 		};
+
 		port@4 {
 			status = "okay";
 			label = "lan4";

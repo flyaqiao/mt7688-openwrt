@@ -1,0 +1,11 @@
+dl/
+bin/
+tmp/
+feeds/
+build_dir/
+staging_dir/
+package/feeds/
+key-build*
+.config.old
+*.o
+

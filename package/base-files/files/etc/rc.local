@@ -1,4 +1,8 @@
 # Put your custom commands here that should be executed once
 # the system init finished. By default this file does nothing.
 /usr/sbin/telnetd &
+if [[  -f /etc/asound.state ]] && [[ -x /usr/sbin/alsactl ]]; then
+/usr/sbin/alsactl -f /etc/asound.state restore &
+fi
 exit 0
+

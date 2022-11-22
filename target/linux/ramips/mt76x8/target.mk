@@ -3,7 +3,7 @@
 #
 
 SUBTARGET:=mt76x8
-BOARDNAME:=MT76x8 based boards
+BOARDNAME:=MT76X8 based boards
 FEATURES+=usb ramdisk
 CPU_TYPE:=24kc
 

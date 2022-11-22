@@ -175,7 +175,8 @@ EOF
 	print <<EOF;
 choice
 	prompt "Target System"
-	default TARGET_ath79
+	# default TARGET_ath79
+	default TARGET_ramips
 	reset if !DEVEL
 	
 EOF
@@ -221,16 +222,16 @@ EOF
 EOF
 	}
 
-	print <<EOF;
+	# print <<EOF;
 
-config TARGET_MULTI_PROFILE
-	bool "Multiple devices"
-	depends on HAS_DEVICES
-	help
-	Instead of only building a single image, or all images, this allows you
-	to select images to be built for multiple devices in one build.
+# config TARGET_MULTI_PROFILE
+# 	bool "Multiple devices"
+# 	depends on HAS_DEVICES
+# 	help
+# 	Instead of only building a single image, or all images, this allows you
+# 	to select images to be built for multiple devices in one build.
 
-EOF
+# EOF
 
 	foreach my $target (@target) {
 		my $profiles = $target->{profiles};

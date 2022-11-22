@@ -17,24 +17,29 @@ Index: linux-5.4.171/drivers/usb/serial/option.c
 ===================================================================
 --- linux-5.4.171.orig/drivers/usb/serial/option.c
 +++ linux-5.4.171/drivers/usb/serial/option.c
-@@ -1095,6 +1095,21 @@ static const struct usb_device_id option
+@@ -1095,6 +1095,26 @@ static const struct usb_device_id option
  	{ USB_DEVICE(QUALCOMM_VENDOR_ID, 0x9000), /* SIMCom SIM5218 */
  	  .driver_info = NCTRL(0) | NCTRL(1) | NCTRL(2) | NCTRL(3) | RSVD(4) },
  	/* Quectel products using Qualcomm vendor ID */
 +#if 1 //Added by Quectel
 +   { USB_DEVICE_AND_INTERFACE_INFO(0x2c7c, 0x0900, 0xff, 0x00, 0x00) },
 +   
-+   //ec20 old
++   //Added by wooya
++   // EC20 old
 +   { USB_DEVICE_INTERFACE_NUMBER(0x05C6, 0x9215, 0) },
 +   { USB_DEVICE_INTERFACE_NUMBER(0x05C6, 0x9215, 1) },
 +   { USB_DEVICE_INTERFACE_NUMBER(0x05C6, 0x9215, 2) },
 +   { USB_DEVICE_INTERFACE_NUMBER(0x05C6, 0x9215, 3) },
 +
-+   //ec20 new
++   // EC20 new
 +   { USB_DEVICE_INTERFACE_NUMBER(0x2C7C, 0x0125, 0) },
 +   { USB_DEVICE_INTERFACE_NUMBER(0x2C7C, 0x0125, 1) },
 +   { USB_DEVICE_INTERFACE_NUMBER(0x2C7C, 0x0125, 2) },
 +   { USB_DEVICE_INTERFACE_NUMBER(0x2C7C, 0x0125, 3) },
++   
++   { USB_DEVICE(0x2C7C, 0x6026) }, /* EC200T */
++   { USB_DEVICE(0x2C7C, 0x6000) }, /* EC200T */
++   { USB_DEVICE(0x2C7C, 0x6005) }, /* EC200A */
 +#endif
  	{ USB_DEVICE(QUALCOMM_VENDOR_ID, QUECTEL_PRODUCT_UC15)},
  	{ USB_DEVICE(QUALCOMM_VENDOR_ID, QUECTEL_PRODUCT_UC20),
@@ -49,11 +54,17 @@ Index: linux-5.4.171/drivers/usb/serial/option.c
  #endif
  };
  
-@@ -2189,6 +2207,23 @@ static int option_probe(struct usb_seria
+@@ -2189,6 +2207,29 @@ static int option_probe(struct usb_seria
  	if (device_flags & NUMEP2 && iface_desc->bNumEndpoints != 2)
  		return -ENODEV;
  
 +#if 1 //Added by wooya
++ if(serial->dev->descriptor.idVendor == cpu_to_le16(0x2C7C)) {
++	__u16 idProduct = le16_to_cpu(serial->dev->descriptor.idProduct);
++ 	//Quectel EC200T's interface 0 can be used as USB Network device (ecm, rndis)
++	if (serial->interface->cur_altsetting->desc.bInterfaceClass != 0xFF)
++ 		return -ENODEV;
++ }
 +   //Quectel UC20'sinterface 4 can be used as USB Network device
 +   if(serial->dev->descriptor.idVendor == cpu_to_le16(0x05C6) &&
 +           serial->dev->descriptor.idProduct == cpu_to_le16(0x9003) &&
