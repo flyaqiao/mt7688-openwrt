@@ -1,7 +1,7 @@
 #!/bin/sh
 
 basepath="/proc/device-tree"
-device_name="$(cat "$(basepath)/model")"
+device_name="$(cat "$basepath/model")"
 
 if [ -n "$1" ];then
 
@@ -13,7 +13,7 @@ apsta)
 	uci set wireless.ap0.device='radio0'
 	uci set wireless.ap0.network='lan'
 	uci set wireless.ap0.mode='ap'                                               
-	uci set wireless.ap0.ssid="HIWOOYA"
+	uci set wireless.ap0.ssid="KITESOFT"
 	uci set wireless.ap0.encryption='none'
 
 	uci set wireless.sta=wifi-iface
