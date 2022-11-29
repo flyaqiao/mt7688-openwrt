@@ -302,7 +302,7 @@ generate_static_system() {
 		delete system.@system[0]
 		add system system
 		set system.@system[-1].hostname='KiteDTU'
-		set system.@system[-1].timezone='UTC-8'
+		set system.@system[-1].timezone='CST-8'
 		set system.@system[-1].zonename ='Asia/Shanghai'
 		set system.@system[-1].ttylogin='0'
 		set system.@system[-1].log_size='64'
@@ -530,4 +530,18 @@ if [ ! -s /etc/config/system ]; then
 	json_get_keys keys led
 	for key in $keys; do generate_led $key; done
 fi
+uci set network.wan_4g=interface
+uci set network.wan_4g.device=eth1
+uci set network.wan_4g.proto=dhcp
+uci set network.wan_4g.up=1
+uci set network.wan_4g.defaultroute=1
+uci set network.wan_4g.metric=2
+
+uci set network.wwan=interface
+uci set network.wwan.proto=dhcp
+uci set network.wwan.up=1
+uci set network.wwan.defaultroute=1
+uci set network.wwan.metric=1
+
+uci set network.wan.metric=3
 uci commit
