@@ -13,7 +13,7 @@ apsta)
 	uci set wireless.ap0.device='radio0'
 	uci set wireless.ap0.network='lan'
 	uci set wireless.ap0.mode='ap'                                               
-	uci set wireless.ap0.ssid="Kitesoft"
+	uci set wireless.ap0.ssid="Hiwooya"
 	uci set wireless.ap0.encryption='psk'
 	uci set wireless.ap0.key='1234567890'
 
@@ -21,7 +21,7 @@ apsta)
 	uci set wireless.sta.device='radio0'
 	uci set wireless.sta.mode='sta'
 	uci set wireless.sta.network='wwan'
-    	uci add_list firewall.@zone[1].network='wwan'
+    uci add_list firewall.@zone[1].network='wwan'
 	uci set wireless.sta.encryption='psk'
 
 	uci set network.wwan=interface
@@ -68,7 +68,7 @@ ap)
 	uci set wireless.ap0.device='radio0'
 	uci set wireless.ap0.network='lan'
 	uci set wireless.ap0.mode='ap'                                               
-	uci set wireless.ap0.ssid="Kitesoft"
+	uci set wireless.ap0.ssid="Hiwooya"
 	uci set wireless.ap0.encryption='psk'
 	uci set wireless.ap0.key='1234567890'
 	uci set wireless.sta.disabled=1
