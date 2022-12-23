@@ -2,6 +2,7 @@ include $(TOPDIR)/rules.mk
 
 # Name and release number of this package
 PKG_NAME:=kitedtu
+PKG_VERSION:=1.0
 PKG_RELEASE:=1
 
 PKG_BUILD_DIR := $(BUILD_DIR)/$(PKG_NAME)
@@ -26,7 +27,7 @@ endef
 define Package/$(PKG_NAME)/description
 endef
 
- 
+
 
 # Specify what needs to be done to prepare for building the package.
 # In our case, we need to copy the source files to the build directory.
