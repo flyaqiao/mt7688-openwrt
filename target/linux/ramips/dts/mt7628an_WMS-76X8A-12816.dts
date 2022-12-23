@@ -74,6 +74,10 @@
 	status = "okay";
 };
 
+&uart2 {
+	status = "okay";
+};
+
 &i2c {
 	status = "okay";
 
