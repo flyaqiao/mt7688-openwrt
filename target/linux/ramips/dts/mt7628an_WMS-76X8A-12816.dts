@@ -88,6 +88,10 @@
 		wlf,shared-lrclk;
 		wlf,adclrc-as-gpio;
 	};
+	rtc@51 {
+		compatible = "nxp,pcf8563";
+		reg = <0x51>;
+	};
 };
 
 &i2s {
