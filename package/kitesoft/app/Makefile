@@ -19,7 +19,7 @@ define Package/$(PKG_NAME)
 	CATEGORY:=Utilities
 	DEPENDS:= +libc
 	SUBMENU:=kitesoft
-	TITLE:=$(PKG_NAME) modify the register from user area
+	TITLE:=$(PKG_NAME) KiteDTU Application
 endef
 
 
