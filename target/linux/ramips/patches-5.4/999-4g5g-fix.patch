@@ -17,7 +17,7 @@ Index: linux-5.4.171/drivers/usb/serial/option.c
 ===================================================================
 --- linux-5.4.171.orig/drivers/usb/serial/option.c
 +++ linux-5.4.171/drivers/usb/serial/option.c
-@@ -1095,6 +1095,26 @@ static const struct usb_device_id option
+@@ -1095,6 +1095,30 @@ static const struct usb_device_id option
  	{ USB_DEVICE(QUALCOMM_VENDOR_ID, 0x9000), /* SIMCom SIM5218 */
  	  .driver_info = NCTRL(0) | NCTRL(1) | NCTRL(2) | NCTRL(3) | RSVD(4) },
  	/* Quectel products using Qualcomm vendor ID */
@@ -40,6 +40,10 @@ Index: linux-5.4.171/drivers/usb/serial/option.c
 +   { USB_DEVICE(0x2C7C, 0x6026) }, /* EC200T */
 +   { USB_DEVICE(0x2C7C, 0x6000) }, /* EC200T */
 +   { USB_DEVICE(0x2C7C, 0x6005) }, /* EC200A */
++   //+add by airm2m
++   { USB_DEVICE(0x19D1, 0x0001) }, /* AIR780 */
++   { USB_DEVICE(0x2ECC, 0xA000) }, /* AIR600 */
++   //-add by airm2m
 +#endif
  	{ USB_DEVICE(QUALCOMM_VENDOR_ID, QUECTEL_PRODUCT_UC15)},
  	{ USB_DEVICE(QUALCOMM_VENDOR_ID, QUECTEL_PRODUCT_UC20),
@@ -54,7 +58,7 @@ Index: linux-5.4.171/drivers/usb/serial/option.c
  #endif
  };
  
-@@ -2189,6 +2207,29 @@ static int option_probe(struct usb_seria
+@@ -2189,6 +2207,41 @@ static int option_probe(struct usb_seria
  	if (device_flags & NUMEP2 && iface_desc->bNumEndpoints != 2)
  		return -ENODEV;
  
@@ -79,6 +83,18 @@ Index: linux-5.4.171/drivers/usb/serial/option.c
 +   if(serial->dev->descriptor.idVendor == cpu_to_le16(0x2C7C)&&
 +           serial->interface->cur_altsetting->desc.bInterfaceNumber >= 4)
 +       return -ENODEV;
++   if(serial->dev->descriptor.idVendor == cpu_to_le16(0x2ECC) &&
++           serial->dev->descriptor.idProduct == cpu_to_le16(0xA000)) {
++           if (serial->interface->cur_altsetting->desc.bInterfaceClass != 0xFF)
++             return -ENODEV;
++           else if (serial->interface->cur_altsetting->desc.bInterfaceNumber >= 4)
++             return -ENODEV;
++   }
++   if(serial->dev->descriptor.idVendor == cpu_to_le16(0x19D1) &&
++           serial->dev->descriptor.idProduct == cpu_to_le16(0x0001)) {
++           if (serial->interface->cur_altsetting->desc.bInterfaceNumber <= 1)
++             return -ENODEV;
++   }
 +#endif
 +
  	/* Store the device flags so we can use them during attach. */
@@ -102,7 +118,7 @@ Index: linux-5.4.171/drivers/usb/serial/usb_wwan.c
 ===================================================================
 --- linux-5.4.171.orig/drivers/usb/serial/usb_wwan.c
 +++ linux-5.4.171/drivers/usb/serial/usb_wwan.c
-@@ -480,6 +480,20 @@ static struct urb *usb_wwan_setup_urb(st
+@@ -480,6 +480,24 @@ static struct urb *usb_wwan_setup_urb(st
  	if (intfdata->use_zlp && dir == USB_DIR_OUT)
  		urb->transfer_flags |= URB_ZERO_PACKET;
  
@@ -117,6 +133,10 @@ Index: linux-5.4.171/drivers/usb/serial/usb_wwan.c
 +           urb->transfer_flags|= URB_ZERO_PACKET;
 +       if (desc->idVendor == cpu_to_le16(0x2C7C))
 +           urb->transfer_flags |= URB_ZERO_PACKET;
++       if (desc->idVendor == cpu_to_le16(0x2ECC) && desc->idProduct == cpu_to_le16(0xA000))
++           urb->transfer_flags|= URB_ZERO_PACKET;
++       if (desc->idVendor == cpu_to_le16(0x19D1) && desc->idProduct == cpu_to_le16(0x0001))
++           urb->transfer_flags|= URB_ZERO_PACKET;
 +   }
 +#endif
 +
