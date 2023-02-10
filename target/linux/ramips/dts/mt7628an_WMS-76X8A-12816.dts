@@ -53,6 +53,10 @@
 		compatible = "nxp,pcf8563";
 		reg = <0x51>;
 	};
+	rtc@50 {
+		compatible = "24c512";
+		reg = <0x50>;
+	};
 };
 
 &i2s {
