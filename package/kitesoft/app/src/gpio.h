@@ -34,5 +34,16 @@ int gpio_write(int pin_number, int value);
 int gpio_set_direction(int pin_number, int direction);
 int gpio_get_direction(int pin_number);
 int gpio_set_edge(int pin_number, int edge);
+int gpio_open_irq(int pin_number, int edge);
+
+#define GPIO11  491
+#define GPIO14  494
+#define GPIO15  495
+#define GPIO16  496
+#define GPIO17  497
+#define GPIO18  498
+#define GPIO19  499
+#define GPIO39  455
+#define GPIO40  456
 
 #endif // __GPIO_H__

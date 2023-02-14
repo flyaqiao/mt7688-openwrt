@@ -6,7 +6,7 @@ OBJFILES := $(SRCFILES:.c=.o)
 all: default
 
 default: $(OBJFILES)
-	$(CC) $(LDFLAGS) $(OBJFILES) -o $(APPNAME)
+	$(CC) $(LDFLAGS) $(OBJFILES) -o $(APPNAME) -lmosquitto
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@

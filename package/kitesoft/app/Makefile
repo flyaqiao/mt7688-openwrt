@@ -17,7 +17,7 @@ include $(INCLUDE_DIR)/package.mk
 define Package/$(PKG_NAME)
 	SECTION:=utils
 	CATEGORY:=Utilities
-	DEPENDS:= +libc
+	DEPENDS:= +libc +libmosquitto
 	SUBMENU:=kitesoft
 	TITLE:=$(PKG_NAME) KiteDTU Application
 endef

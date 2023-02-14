@@ -359,4 +359,36 @@ int gpio_set_edge(int pin_number, int edge)
 
 	return GPIO_SUCCESS;
 }
+int gpio_open_irq(int pin_number, int edge)
+{
+	int fd = -1;
 
+	//导出io
+	if (GPIO_SUCCESS != gpio_export(pin_number)) {
+		perror("gpio_export failed!\n");
+	}
+
+	//配置成输入
+	if (gpio_set_direction(pin_number, GPIO_INPUT) != GPIO_SUCCESS) {
+		perror("open direction failed!\n");
+		return GPIO_INVALID_RESOURCE;
+	}
+	printf("set direction ok!\n");
+
+	//边沿触发
+	if (GPIO_SUCCESS != gpio_set_edge(pin_number, GPIO_EDGE_BOTH)) {
+		perror("open edge failed!\n");
+		return GPIO_INVALID_RESOURCE;
+	}
+	printf("set edge ok!\n");
+
+	//开始捕获
+	fd = gpio_open(pin_number);
+	if (fd < 0) {
+		perror("open failed!\n");
+		return -1;
+	}
+	printf("open Ok!\n");
+
+	return fd;
+}
