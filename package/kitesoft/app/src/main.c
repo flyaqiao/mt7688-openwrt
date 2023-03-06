@@ -14,46 +14,8 @@
 #ifndef COUNTOF
 #define COUNTOF(_Array) (sizeof(_Array) / sizeof(_Array[0]))
 #endif
-const unsigned int gpio_defs[] = { GPIO18, GPIO15, GPIO16, GPIO17, GPIO39, GPIO40, GPIO11 };
-//开始捕获测试
-static int gpio_irq_test(void)
-{
-  int i;
-  struct pollfd fds[COUNTOF(gpio_defs)];
-  for (i = 0; i < COUNTOF(gpio_defs); i++) {
-    fds[i].fd = gpio_open_irq(gpio_defs[i], GPIO_EDGE_BOTH);
-    fds[i].events = POLLPRI;
-  }
-
-  while (1) {
-    if (poll(fds, COUNTOF(gpio_defs), 0) < 0) {
-      perror("poll failed!\n");
-      return -1;
-    }
-
-    for (i = 0; i < COUNTOF(gpio_defs); i++) {
-      if (fds[i].revents & POLLPRI) {
-        //能进这里就代表触发事件发生了,我这里是置了一个标志
-        if (lseek(fds[i].fd, 0, SEEK_SET) == -1) {
-          perror("lseek value failed!\n");
-          return -1;
-        }
-        char buffer[16];
-        int len;
-        //一定要读取,不然会一直检测到紧急事件
-        if ((len = read(fds[i].fd, buffer, sizeof(buffer))) == -1)  {
-          perror("read value failed!\n");
-          return -1;
-        }
-        buffer[len] = 0;
-        printf("%d:%s", i, buffer);
-      }
-    }
-  }
-
-  return 0;
-}
-static void GpioThread(void* arg)
+const uint32_t gpio_defs[] = { GPIO18, GPIO15, GPIO16, GPIO17, GPIO39, GPIO40, GPIO11 };
+static void GpioThreadIrq(void* arg)
 {
   int i;
   struct pollfd fds[COUNTOF(gpio_defs)];
@@ -87,8 +49,27 @@ static void GpioThread(void* arg)
       }
     }
   }
+}
+static void GpioThread(void* arg)
+{
+  int i;
+  int fds[COUNTOF(gpio_defs)];
+  uint8_t states[COUNTOF(gpio_defs)];
+  for (i = 0; i < COUNTOF(gpio_defs); i++) {
+    states[i] = 0;
+    gpio_set_direction(gpio_defs[i], GPIO_INPUT);
+    fds[i] = gpio_open(gpio_defs[i]);
+  }
 
-  return 0;
+  while (1) {
+    Sleep(1);
+    for (i = 0; i < COUNTOF(gpio_defs); i++) {
+      states[i] = (states[i] << 1) | (gpio_read(gpio_defs[i]) == GPIO_HIGH);
+      if (states[i] == 0x80 || states[i] == 0x7F) {
+        printf("Key Event %d => %d\r\n", i, states[i] == 0x80);
+      }
+    }
+  }
 }
 void blink(int pin)
 {
@@ -184,22 +165,22 @@ static void CommThread(void* arg)
 #define MSG_MAX_SIZE  512
 
 // 定义运行标志决定是否需要结束
-static int running = 1;
+static int connected = 0;
 
 void my_connect_callback(struct mosquitto *mosq, void *obj, int rc)
 {
   printf("Call the function: on_connect\n");
 
-  if(rc){
+  if (rc) {
     // 连接错误，退出程序
     printf("on_connect error!\n");
-    exit(1);
-  }else{
+  } else {
+    connected = 1;
     // 订阅主题
     // 参数：句柄、id、订阅的主题、qos
-    if(mosquitto_subscribe(mosq, NULL, "topic1", 2)){
+    if (mosquitto_subscribe(mosq, NULL, "topic1", 2)) {
       printf("Set the topic error!\n");
-      exit(1);
+      connected = 0;
     }
   }
 }
@@ -207,7 +188,7 @@ void my_connect_callback(struct mosquitto *mosq, void *obj, int rc)
 void my_disconnect_callback(struct mosquitto *mosq, void *obj, int rc)
 {
   printf("Call the function: my_disconnect_callback\n");
-  running = 0;
+  connected = 0;
 }
 
 void my_subscribe_callback(struct mosquitto *mosq, void *obj, int mid, int qos_count, const int *granted_qos)
@@ -215,12 +196,15 @@ void my_subscribe_callback(struct mosquitto *mosq, void *obj, int mid, int qos_c
   printf("Call the function: on_subscribe\n");
 }
 
+static int iCount = 0;
 void my_message_callback(struct mosquitto *mosq, void *obj, const struct mosquitto_message *msg)
 {
-  printf("Call the function: on_message\n");
-  printf("Recieve a message of %s : %s\n", (char *)msg->topic, (char *)msg->payload);
-
-  if(0 == strcmp(msg->payload, "quit")){
+  char buff[32];
+  printf("Recieve a message of %s : %s [ %d ]\n", (char *)msg->topic, (char *)msg->payload, iCount);
+  /*发布消息*/
+  sprintf(buff, "%d", iCount++);
+  mosquitto_publish(mosq, NULL, "topic2", strlen(buff), buff, 0, 0);
+  if (0 == strcmp(msg->payload, "quit")) {
     mosquitto_disconnect(mosq);
   }
 }
@@ -232,7 +216,7 @@ static int MqttThread(void* arg)
 
   // 初始化mosquitto库
   ret = mosquitto_lib_init();
-  if(ret){
+  if (ret) {
     printf("Init lib error!\n");
     return -1;
   }
@@ -240,7 +224,7 @@ static int MqttThread(void* arg)
   // 创建一个订阅端实例
   // 参数：id（不需要则为NULL）、clean_start、用户数据
   mosq = mosquitto_new("sub_test", true, NULL);
-  if(mosq == NULL){
+  if (mosq == NULL) {
     printf("New sub_test error!\n");
     mosquitto_lib_cleanup();
     return -1;
@@ -253,21 +237,20 @@ static int MqttThread(void* arg)
   mosquitto_subscribe_callback_set(mosq, my_subscribe_callback);
   mosquitto_message_callback_set(mosq, my_message_callback);
 
-  // 连接至服务器
-  // 参数：句柄、ip（host）、端口、心跳
-  ret = mosquitto_connect(mosq, HOST, PORT, KEEP_ALIVE);
-  if(ret){
-    printf("Connect server error!\n");
-    mosquitto_destroy(mosq);
-    mosquitto_lib_cleanup();
-    return -1;
-  }
-
-
-  // 开始通信：循环执行、直到运行标志running被改变
+  // 开始通信：循环执行
   printf("Start!\n");
-  while(running)
-  {
+  while (1) {
+    if (connected == 0) {
+      // 连接至服务器
+      // 参数：句柄、ip（host）、端口、心跳
+      ret = mosquitto_connect(mosq, HOST, PORT, KEEP_ALIVE);
+      if (ret) {
+        printf("Connect server error!\n");
+        mosquitto_destroy(mosq);
+        mosquitto_lib_cleanup();
+      }
+      sleep(1);
+    }
     mosquitto_loop(mosq, -1, 1);
   }
 
@@ -279,8 +262,43 @@ static int MqttThread(void* arg)
   return 0;
 }
 
+#if 0
+#include<stdio.h>
+#include<sys/msg.h>
+#include<stdlib.h>
+#include<string.h>
+ 
+#define MSG_KEY 0x1234
+#define MSG_SIZE 512
+#define MSG_TYPE 123
+ 
+struct msgbuf1 {
+  long mtype;
+  char mtext[MSG_SIZE];
+};
+ 
+int main()
+{
+  int msg_id = msgget(MSG_KEY, IPC_CREAT|0666);
+  if(msg_id == -1)
+  {
+    printf("创建消息队列失败\n");
+    return -1;
+  }
+  struct msgbuf1 read_buf;
+  int nread = msgrcv(msg_id, &read_buf, sizeof(read_buf.mtext), MSG_TYPE, 0);
+  if(nread == -1)
+    printf("读消息队列失败\n");
+  else
+    printf("读消息队列成功:%s\n", read_buf.mtext);
+  struct msqid_ds buf;
+  msgctl(msg_id, IPC_RMID, &buf);
+  return 0;
+}
+#else
 int main(int argc, char **argv)
 {
+  InitCache();
   StartBackgroudTask(GpioThread, (void*)0);
   StartBackgroudTask(MqttThread, (void*)0);
   //StartBackgroudTask(CommThread, (void*)1);
@@ -291,3 +309,4 @@ int main(int argc, char **argv)
   printf("Exit\r\n");
   return 0;
 }
+#endif
