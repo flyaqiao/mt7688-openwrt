@@ -19,7 +19,7 @@ define Package/$(PKG_NAME)
 	CATEGORY:=Utilities
 	DEPENDS:= +libc +libmosquitto
 	SUBMENU:=kitesoft
-	TITLE:=$(PKG_NAME) KiteDTU Application
+	TITLE:=$(PKG_NAME) Application
 endef
 
 
