@@ -98,7 +98,7 @@
 
 &state_default {
 	gpio {
-		groups = "wdt", "wled_an";
+		groups = "wdt", "wled_an", "p1led_an", "p2led_an", "p3led_an", "p4led_an";
 		function = "gpio";
 	};
 };
