@@ -1,54 +1,152 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/stat.h>
 #include <termios.h>
 #include <poll.h>
+#include <sys/stat.h>
+#include <sys/msg.h>
 #include "gpio.h"
 #include "SysCall.h"
-#include "mosquitto.h"
 
 #ifndef COUNTOF
 #define COUNTOF(_Array) (sizeof(_Array) / sizeof(_Array[0]))
 #endif
-const uint32_t gpio_defs[] = { GPIO18, GPIO15, GPIO16, GPIO17, GPIO39, GPIO40, GPIO11 };
+#define MSG_KEY 0x1234
+#define MSG_SIZE 512
+#define MSG_TYPE 123
+
+struct msg_data {
+  long mtype;
+  int  mindex;
+  int  mvalue;
+  time_t mtime;
+};
+
+typedef struct tagParameter {
+  uint32_t Magic;
+  uint32_t MachType; // Éè±¸ÀàĞÍ(0:»ú¼Ó¹¤,1:×¢ËÜ,2:HASS)
+  uint32_t ReportInterval;  // ÉÏ±¨¼ä¸ô(s)
+  uint32_t CountReport; // ²úÁ¿ÉÏ±¨ÊıÁ¿
+  uint32_t LogReport; // ÈÕÖ¾ÉÏ±¨
+  uint32_t RunDelay;    // ÔËĞĞµÆÃğ,ÅĞ¶Ï´ı»úµÄ¼ä¸ô(ms)
+  uint32_t DebugMode;   // ²âÊÔÄ£Ê½
+  char longitude[20]; // ¾­¶È
+  char latitude[20];  // Î³¶È
+#ifdef MQTT_SUPPORT
+  char MqttServer[32];
+  uint32_t MqttPort;
+  char MqttPwd[32];
+#endif
+#ifdef FTP_SUPPORT
+  char FtpServer[32];
+  char FtpUser[32];
+  char FtpPwd[32];
+  uint32_t FtpPort;
+#endif
+  uint32_t Crc;
+} PARAMETER;
+typedef enum {
+  MS_RUNNING = 0, // Éú²ú
+  MS_READY = 1,   // ´ı»ú
+  MS_ALERT = 10,  // ¹ÊÕÏ
+} RUN_STATE;
+typedef struct {
+  uint32_t ReadyTime : 8;
+  uint32_t RunTime : 8;
+  uint32_t AlertTime : 8;
+  uint32_t State : 4;
+  uint32_t RE : 4;
+  uint32_t Count;
+  uint32_t BeginTime;
+  uint32_t EndTime;
+} MACH_STATE;
+static MACH_STATE m_RunData;
+static uint8_t m_iComState = 0xFF;
+static uint8_t m_iRedState = 0;
+static uint8_t m_iYellowState = 0;
+static uint8_t m_iGreenState = 0;
+PARAMETER m_Parameter;
+const uint32_t gpio_defs[] = { GPIO18, GPIO15, GPIO16, GPIO17, GPIO39, GPIO40 };
 static void GpioThreadIrq(void* arg)
 {
   int i;
+  char buffer[16];
+  int len;
+  int value;
+  struct msg_data data;
   struct pollfd fds[COUNTOF(gpio_defs)];
+  data.mtype = MSG_TYPE; // ×¢Òâ2
   for (i = 0; i < COUNTOF(gpio_defs); i++) {
     fds[i].fd = gpio_open_irq(gpio_defs[i], GPIO_EDGE_BOTH);
     fds[i].events = POLLPRI;
   }
+  int msg_id = msgget(MSG_KEY, IPC_CREAT | 0666);
+  if (msg_id == -1) {
+    printf("´´½¨ÏûÏ¢¶ÓÁĞÊ§°Ü\n");
+    return;
+  }
 
   while (1) {
-    if (poll(fds, COUNTOF(gpio_defs), 0) < 0) {
+    if (poll(fds, COUNTOF(gpio_defs), -1) < 0) {
       perror("poll failed!\n");
       continue;
     }
 
     for (i = 0; i < COUNTOF(gpio_defs); i++) {
       if (fds[i].revents & POLLPRI) {
-        //èƒ½è¿›è¿™é‡Œå°±ä»£è¡¨è§¦å‘äº‹ä»¶å‘ç”Ÿäº†,æˆ‘è¿™é‡Œæ˜¯ç½®äº†ä¸€ä¸ªæ ‡å¿—
+        //ÄÜ½øÕâÀï¾Í´ú±í´¥·¢ÊÂ¼ş·¢ÉúÁË,ÎÒÕâÀïÊÇÖÃÁËÒ»¸ö±êÖ¾
         if (lseek(fds[i].fd, 0, SEEK_SET) == -1) {
           perror("lseek value failed!\n");
           continue;
         }
-        char buffer[16];
-        int len;
-        //ä¸€å®šè¦è¯»å–,ä¸ç„¶ä¼šä¸€ç›´æ£€æµ‹åˆ°ç´§æ€¥äº‹ä»¶
+        //Ò»¶¨Òª¶ÁÈ¡,²»È»»áÒ»Ö±¼ì²âµ½½ô¼±ÊÂ¼ş
         if ((len = read(fds[i].fd, buffer, sizeof(buffer))) == -1)  {
           perror("read value failed!\n");
           continue;
         }
         buffer[len] = 0;
-        printf("%d:%s", i, buffer);
+        data.mindex = i;
+        data.mvalue = atoi(buffer);
+        data.mtime = time(NULL);
+        //value = atoi(buffer);
+        //printf("%d:%s", i, buffer);
+        //sprintf(data.mtext, "%d:%d", i, value);
+        // Ïò¶ÓÁĞÀï·¢ËÍÊı¾İ
+        if (msgsnd(msg_id, (void *)&data, sizeof(data) - sizeof(data.mtype), 0) == -1) {
+          fprintf(stderr, "msgsnd failed\n");
+        }
+#if 0
+        switch (i) {
+        case 0: // COM
+          m_iComState = value;
+          break;
+        case 1: // RED
+          m_iRedState = value;
+          break;
+        case 2: // GREEN
+          m_iGreenState = value;
+          break;
+        case 3: // YELLOW 
+          m_iYellowState = value;
+          break;
+        case 4: // CLOSE
+          if (m_Parameter.MachType == 1)  // ×¢ËÜ
+            m_RunData.Count++;
+          break;
+        case 5: // COUNT
+          if (m_Parameter.MachType != 1)  // ·Ç×¢ËÜ
+            m_RunData.Count++;
+          break;
+        }
+#endif
       }
     }
   }
+  msgctl(msg_id, IPC_RMID, NULL);
 }
 static void GpioThread(void* arg)
 {
@@ -66,26 +164,7 @@ static void GpioThread(void* arg)
     for (i = 0; i < COUNTOF(gpio_defs); i++) {
       states[i] = (states[i] << 1) | (gpio_read(gpio_defs[i]) == GPIO_HIGH);
       if (states[i] == 0x80 || states[i] == 0x7F) {
-        printf("Key Event %d => %d\r\n", i, states[i] == 0x80);
-      }
-    }
-  }
-}
-void blink(int pin)
-{
-  printf("blink GPIO %d for 100 times\n", pin);
-  fflush(stdout);
-
-  if (GPIO_SUCCESS == gpio_export(pin)) {
-    if (GPIO_SUCCESS == gpio_set_direction(pin, GPIO_OUTPUT)) {
-      //blink
-      int value = GPIO_HIGH;
-      int i;
-      for (i = 0; i < 100; i++) {
-        printf("blink %d\n", i);
-        value = (value == GPIO_HIGH) ? GPIO_LOW : GPIO_HIGH;
-        gpio_write(pin, value);
-        sleep(1);
+        printf("Key Event %d => %d\n", i, states[i] == 0x80);
       }
     }
   }
@@ -97,42 +176,42 @@ static void CommThread(void* arg)
   char szComm[32];
   int sno = (int)arg;
   sprintf(szComm, "/dev/ttyS%d", sno);
-  //1.æ‰“å¼€ä¸²å£è®¾å¤‡æ–‡ä»¶
+  //1.´ò¿ª´®¿ÚÉè±¸ÎÄ¼ş
   int serial_fd = open(szComm, O_RDWR | O_NOCTTY);
   if (serial_fd == -1){
     perror("open fail");
     exit(-1);
   }
-  //2.å¤‡ä»½ç°æœ‰çš„ä¸²å£é…ç½®
+  //2.±¸·İÏÖÓĞµÄ´®¿ÚÅäÖÃ
   if (-1 == tcgetattr(serial_fd, &old_cfg)) {
     perror("tcgetattr");
     exit(-1);
   }
-  //3.åŸå§‹æ¨¡å¼
+  //3.Ô­Ê¼Ä£Ê½
   new_cfg = old_cfg;
   cfmakeraw(&new_cfg);
 
-  //4.é…ç½®æ³¢ç‰¹ç‡
+  //4.ÅäÖÃ²¨ÌØÂÊ
   cfsetispeed(&new_cfg, B115200);
   cfsetospeed(&new_cfg, B115200);
 
-  //5.è®¾ç½®æ§åˆ¶æ ‡å¿—
-  new_cfg.c_cflag |= CREAD | CLOCAL;//ä½¿èƒ½æ•°æ®æ¥æ”¶å’Œæœ¬åœ°æ¨¡å¼
+  //5.ÉèÖÃ¿ØÖÆ±êÖ¾
+  new_cfg.c_cflag |= CREAD | CLOCAL;//Ê¹ÄÜÊı¾İ½ÓÊÕºÍ±¾µØÄ£Ê½
 
-  //6.è®¾ç½®å¸§ç»“æ„
-  new_cfg.c_cflag &= ~CSTOPB;//1ä½åœæ­¢ä½
-  new_cfg.c_cflag &= ~CSIZE;//å»æ‰æ•°æ®ä½å±è”½
-  new_cfg.c_cflag |= CS8;//8ä½æ•°æ®ä½
-  new_cfg.c_cflag &= ~PARENB;//æ— æ ¡éªŒ	
+  //6.ÉèÖÃÖ¡½á¹¹
+  new_cfg.c_cflag &= ~CSTOPB;//1Î»Í£Ö¹Î»
+  new_cfg.c_cflag &= ~CSIZE;//È¥µôÊı¾İÎ»ÆÁ±Î
+  new_cfg.c_cflag |= CS8;//8Î»Êı¾İÎ»
+  new_cfg.c_cflag &= ~PARENB;//ÎŞĞ£Ñé	
 
-  //7.è®¾ç½®é˜»å¡æ¨¡å¼
+  //7.ÉèÖÃ×èÈûÄ£Ê½
   tcflush(serial_fd, TCIOFLUSH);
-  //æ”¶åˆ°1å­—èŠ‚è§£é™¤é˜»å¡
+  //ÊÕµ½1×Ö½Ú½â³ı×èÈû
   new_cfg.c_cc[VTIME] = 0;
   new_cfg.c_cc[VMIN] = 1;
   tcflush(serial_fd, TCIOFLUSH);
 
-  //8.ä½¿èƒ½é…ç½®ç”Ÿæ•ˆ
+  //8.Ê¹ÄÜÅäÖÃÉúĞ§
   if (-1 == tcsetattr(serial_fd, TCSANOW, &new_cfg)) {
     perror("tcgetattr");
     exit(-1);
@@ -142,15 +221,15 @@ static void CommThread(void* arg)
       memset(szComm, 0, sizeof(szComm));
       int len = read(serial_fd, szComm, sizeof(szComm) - 1);
       if (len > 0)
-        printf("RECV:%s", szComm); /* æ‰“å°ä»ä¸²å£è¯»å‡ºçš„å­—ç¬¦ä¸² */
+        printf("RECV:%s", szComm); /* ´òÓ¡´Ó´®¿Ú¶Á³öµÄ×Ö·û´® */
     } else {
       int len = write(serial_fd, "Hello World\n", 12);
       printf("write data %d\n", len);
       DelayMs(100);
     }
-    //printf("SNO: %d\r\n", sno);
+    //printf("SNO: %d\n", sno);
   }
-  //æ¢å¤é…ç½®
+  //»Ö¸´ÅäÖÃ
   if (-1 == tcsetattr(serial_fd, TCSANOW, &old_cfg)) {
     perror("tcgetattr");
     exit(-1);
@@ -159,154 +238,24 @@ static void CommThread(void* arg)
   close(serial_fd);
 }
 
-#define HOST "1.15.67.50"
-#define PORT  1883
-#define KEEP_ALIVE 60
-#define MSG_MAX_SIZE  512
-
-// å®šä¹‰è¿è¡Œæ ‡å¿—å†³å®šæ˜¯å¦éœ€è¦ç»“æŸ
-static int connected = 0;
-
-void my_connect_callback(struct mosquitto *mosq, void *obj, int rc)
-{
-  printf("Call the function: on_connect\n");
-
-  if (rc) {
-    // è¿æ¥é”™è¯¯ï¼Œé€€å‡ºç¨‹åº
-    printf("on_connect error!\n");
-  } else {
-    connected = 1;
-    // è®¢é˜…ä¸»é¢˜
-    // å‚æ•°ï¼šå¥æŸ„ã€idã€è®¢é˜…çš„ä¸»é¢˜ã€qos
-    if (mosquitto_subscribe(mosq, NULL, "topic1", 2)) {
-      printf("Set the topic error!\n");
-      connected = 0;
-    }
-  }
-}
-
-void my_disconnect_callback(struct mosquitto *mosq, void *obj, int rc)
-{
-  printf("Call the function: my_disconnect_callback\n");
-  connected = 0;
-}
-
-void my_subscribe_callback(struct mosquitto *mosq, void *obj, int mid, int qos_count, const int *granted_qos)
-{
-  printf("Call the function: on_subscribe\n");
-}
-
-static int iCount = 0;
-void my_message_callback(struct mosquitto *mosq, void *obj, const struct mosquitto_message *msg)
-{
-  char buff[32];
-  printf("Recieve a message of %s : %s [ %d ]\n", (char *)msg->topic, (char *)msg->payload, iCount);
-  /*å‘å¸ƒæ¶ˆæ¯*/
-  sprintf(buff, "%d", iCount++);
-  mosquitto_publish(mosq, NULL, "topic2", strlen(buff), buff, 0, 0);
-  if (0 == strcmp(msg->payload, "quit")) {
-    mosquitto_disconnect(mosq);
-  }
-}
-
-static int MqttThread(void* arg)
-{
-  int ret;
-  struct mosquitto *mosq;
-
-  // åˆå§‹åŒ–mosquittoåº“
-  ret = mosquitto_lib_init();
-  if (ret) {
-    printf("Init lib error!\n");
-    return -1;
-  }
-
-  // åˆ›å»ºä¸€ä¸ªè®¢é˜…ç«¯å®ä¾‹
-  // å‚æ•°ï¼šidï¼ˆä¸éœ€è¦åˆ™ä¸ºNULLï¼‰ã€clean_startã€ç”¨æˆ·æ•°æ®
-  mosq = mosquitto_new("sub_test", true, NULL);
-  if (mosq == NULL) {
-    printf("New sub_test error!\n");
-    mosquitto_lib_cleanup();
-    return -1;
-  }
-  mosquitto_username_pw_set(mosq, "mt7688", "12345678");
-  // è®¾ç½®å›è°ƒå‡½æ•°
-  // å‚æ•°ï¼šå¥æŸ„ã€å›è°ƒå‡½æ•°
-  mosquitto_connect_callback_set(mosq, my_connect_callback);
-  mosquitto_disconnect_callback_set(mosq, my_disconnect_callback);
-  mosquitto_subscribe_callback_set(mosq, my_subscribe_callback);
-  mosquitto_message_callback_set(mosq, my_message_callback);
-
-  // å¼€å§‹é€šä¿¡ï¼šå¾ªç¯æ‰§è¡Œ
-  printf("Start!\n");
-  while (1) {
-    if (connected == 0) {
-      // è¿æ¥è‡³æœåŠ¡å™¨
-      // å‚æ•°ï¼šå¥æŸ„ã€ipï¼ˆhostï¼‰ã€ç«¯å£ã€å¿ƒè·³
-      ret = mosquitto_connect(mosq, HOST, PORT, KEEP_ALIVE);
-      if (ret) {
-        printf("Connect server error!\n");
-        mosquitto_destroy(mosq);
-        mosquitto_lib_cleanup();
-      }
-      sleep(1);
-    }
-    mosquitto_loop(mosq, -1, 1);
-  }
-
-  // ç»“æŸåçš„æ¸…ç†å·¥ä½œ
-  mosquitto_destroy(mosq);
-  mosquitto_lib_cleanup();
-  printf("End!\n");
-
-  return 0;
-}
-
-#if 0
-#include<stdio.h>
-#include<sys/msg.h>
-#include<stdlib.h>
-#include<string.h>
- 
-#define MSG_KEY 0x1234
-#define MSG_SIZE 512
-#define MSG_TYPE 123
- 
-struct msgbuf1 {
-  long mtype;
-  char mtext[MSG_SIZE];
-};
- 
-int main()
-{
-  int msg_id = msgget(MSG_KEY, IPC_CREAT|0666);
-  if(msg_id == -1)
-  {
-    printf("åˆ›å»ºæ¶ˆæ¯é˜Ÿåˆ—å¤±è´¥\n");
-    return -1;
-  }
-  struct msgbuf1 read_buf;
-  int nread = msgrcv(msg_id, &read_buf, sizeof(read_buf.mtext), MSG_TYPE, 0);
-  if(nread == -1)
-    printf("è¯»æ¶ˆæ¯é˜Ÿåˆ—å¤±è´¥\n");
-  else
-    printf("è¯»æ¶ˆæ¯é˜Ÿåˆ—æˆåŠŸ:%s\n", read_buf.mtext);
-  struct msqid_ds buf;
-  msgctl(msg_id, IPC_RMID, &buf);
-  return 0;
-}
-#else
+int MqttThread(void* arg);
 int main(int argc, char **argv)
 {
-  InitCache();
-  StartBackgroudTask(GpioThread, (void*)0);
-  StartBackgroudTask(MqttThread, (void*)0);
-  //StartBackgroudTask(CommThread, (void*)1);
-  //StartBackgroudTask(CommThread, (void*)2);
-  while (1) {
-    DelayMs(1000);
+  int msg_id = msgget(MSG_KEY, IPC_CREAT | 0666);
+  StartBackgroudTask(GpioThreadIrq, (void*)0, 66);
+  StartBackgroudTask(MqttThread, (void*)0, 65);
+  if (msg_id == -1) {
+    printf("´´½¨ÏûÏ¢¶ÓÁĞÊ§°Ü\n");
+    return -1;
   }
-  printf("Exit\r\n");
+  while (1) {
+    struct msg_data read_buf;
+    int nread = msgrcv(msg_id, &read_buf, sizeof(read_buf) - sizeof(read_buf.mtype), MSG_TYPE, 0);
+    if(nread == -1)
+      printf("¶ÁÏûÏ¢¶ÓÁĞÊ§°Ü\n");
+    else
+      printf("¶ÁÏûÏ¢¶ÓÁĞ³É¹¦:%d,%d,%d\n", read_buf.mindex, read_buf.mvalue, (int)read_buf.mtime);
+  }
+  msgctl(msg_id, IPC_RMID, NULL);
   return 0;
 }
-#endif

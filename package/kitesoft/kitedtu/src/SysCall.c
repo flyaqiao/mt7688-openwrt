@@ -12,6 +12,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <pthread.h>
+#include <sched.h>
 #endif
 
 void OpenLock(MUTEX_T* p)
@@ -58,7 +60,7 @@ int DelayMs(int ms)
 #endif
 }
 
-int StartBackgroudTask(void* fn, void* param)
+int StartBackgroudTask(void* fn, void* param, int priority)
 {
 #ifdef WIN32
   HANDLE hThread;
@@ -69,10 +71,18 @@ int StartBackgroudTask(void* fn, void* param)
 #else
   int ret;
   pthread_t tid;
-  //pthread_attr_t a; //线程属性
-  //pthread_attr_init(&a);  //初始化线程属性
+  pthread_attr_t a; //线程属性
+  struct sched_param param1;
+  pthread_attr_init(&a);  //初始化线程属性
+  //2、自己决定调度策略
+  pthread_attr_setinheritsched(&a, PTHREAD_EXPLICIT_SCHED);
+  //3、设置调度策略
+  pthread_attr_setschedpolicy(&a, SCHED_FIFO);
+  //4、设置优先级
+  param1.sched_priority = priority;//sched_get_priority_max(SCHED_FIFO);// 线程1设置优先级为10
+  pthread_attr_setschedparam(&a, &param1);
   //pthread_attr_setdetachstate(&a, PTHREAD_CREATE_DETACHED);      //设置线程属性
-  ret = pthread_create(&tid, NULL/*&a*/, fn, param);
+  ret = pthread_create(&tid, &a, fn, param);
   if (ret != 0) {
     printf("Thread create fail 1\r\n");
     return ret;

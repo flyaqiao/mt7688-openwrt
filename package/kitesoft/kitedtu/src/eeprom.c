@@ -76,7 +76,7 @@ void InitCache()
   m_iCacheFd = open("/sys/bus/i2c/devices/0-0050/eeprom", O_RDWR);//打开文件
   if (m_iCacheFd < 0)
     printf("####i2c test device open failed####/n");
-  StartBackgroudTask(ScanCacheData, (void*)0);
+  StartBackgroudTask(ScanCacheData, (void*)0, 0);
 }
 int send_run_data(uint16_t run_time, uint16_t alert_time, uint16_t ready_time, time_t begin, time_t end, uint16_t state, uint16_t RE, uint16_t count)
 {
