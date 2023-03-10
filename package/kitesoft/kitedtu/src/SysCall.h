@@ -12,7 +12,6 @@
 #else
 #include <pthread.h>
 #define MUTEX_T pthread_mutex_t
-unsigned long GetTickCount();
 #define _popen popen
 #define _pclose pclose
 #endif

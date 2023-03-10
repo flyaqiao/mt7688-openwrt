@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include "SysCall.h"
+#include "typedef.h"
 
 static MUTEX_T m_CacheMutex;
 static int m_iCacheFd;
@@ -46,7 +47,7 @@ static int AT24CXX_Read(int addr, unsigned char *buf, int len)
     return -1;
   return 0;
 }
-static void ScanCacheData(void)
+static void ScanCacheData(void* arg)
 {
   int i;
   uint16_t magic = 0;
@@ -70,13 +71,15 @@ static void ScanCacheData(void)
   Unlock(&m_CacheMutex);
   printf("Cache Pos: %d %d\r\n", CacheDataHeader.Read, CacheDataHeader.Write);
 }
+void LoadParameter(void);
 void InitCache()
 {
   OpenLock(&m_CacheMutex);
   m_iCacheFd = open("/sys/bus/i2c/devices/0-0050/eeprom", O_RDWR);//打开文件
   if (m_iCacheFd < 0)
     printf("####i2c test device open failed####/n");
-  StartBackgroudTask(ScanCacheData, (void*)0, 0);
+  LoadParameter();
+  StartBackgroudTask(ScanCacheData, (void*)0, 99);
 }
 int send_run_data(uint16_t run_time, uint16_t alert_time, uint16_t ready_time, time_t begin, time_t end, uint16_t state, uint16_t RE, uint16_t count)
 {
@@ -90,6 +93,7 @@ int send_run_data(uint16_t run_time, uint16_t alert_time, uint16_t ready_time, t
   data.BeginTime = begin;
   data.EndTime = end;
   data.RE = RE;
+  printf("%s(G:%d,R:%d,Y:%d,[%ld,%ld],%d,%d,%d)\r\n", __func__, run_time, alert_time, ready_time, begin, end, state, RE, count);
   /*临界区上锁*/
   Lock(&m_CacheMutex);
   AT24CXX_Write(CACHE_DATA_ADDR + CacheDataHeader.Write * CACHE_DATA_SIZE, (void *)&data, sizeof(data));
@@ -99,7 +103,72 @@ int send_run_data(uint16_t run_time, uint16_t alert_time, uint16_t ready_time, t
   /*临界区释放锁*/
   Unlock(&m_CacheMutex);
   printf("data size = %d cur pos = [%d, %d]\r\n", sizeof(data), CacheDataHeader.Read, CacheDataHeader.Write);
-  //at_send_mqtt_log("cur pos = [%d, %d]", CacheDataHeader.Read, CacheDataHeader.Write);
-  //tx_semaphore_put(&at_ready_sem);
+  return 0;
+}
+static unsigned char keys[] = "J3#o&Kn4";
+#define POLY32 0x04C11DB7
+void Rc4Encrypt(const unsigned char *pSrc, unsigned char *pDst, int iSize, unsigned char szKeys[8]);
+void Rc4Decrypt(const unsigned char *pSrc, unsigned char *pDst, int iSize, unsigned char szKeys[8]);
+unsigned long CalcCRC32(unsigned char *buf, int dlen, int poly, unsigned long CRCinit);
+static void ParameterCheck(void)
+{
+  if (m_Parameter.ReportInterval == 0 || m_Parameter.ReportInterval > 180)
+    m_Parameter.ReportInterval = 60;
+  if (m_Parameter.RunDelay == 0 || m_Parameter.RunDelay > 30000)
+    m_Parameter.RunDelay = 3000;
+}
+void SaveParameter(void)
+{
+  unsigned char tmp[sizeof(PARAMETER)];
+  OpenLock(&m_CacheMutex);
+  /* CRC32 usage. */
+  m_Parameter.Magic = 0x85868483;
+  ParameterCheck();
+  m_Parameter.Crc = CalcCRC32((unsigned char *)&m_Parameter, sizeof(m_Parameter) - sizeof(uint32_t), POLY32, 0);
+  Rc4Encrypt((unsigned char *)&m_Parameter, tmp, sizeof(m_Parameter), keys);
+  AT24CXX_Write(0, (uint8_t *)tmp, sizeof(m_Parameter));
+  /*临界区释放锁*/
+  Unlock(&m_CacheMutex);
+}
+void LoadParameter(void)
+{
+  unsigned char tmp[sizeof(PARAMETER)];
+  uint32_t u32CRC;
+  /*临界区上锁*/
+  Lock(&m_CacheMutex);
+  AT24CXX_Read(0, (uint8_t *)tmp, sizeof(m_Parameter));
+  /*临界区释放锁*/
+  Unlock(&m_CacheMutex);
+  Rc4Decrypt(tmp, (unsigned char *)&m_Parameter, sizeof(m_Parameter), keys);
+  /* CRC32 usage. */
+  u32CRC = CalcCRC32((unsigned char *)&m_Parameter, sizeof(m_Parameter) - sizeof(uint32_t), POLY32, 0);
+  if (m_Parameter.Magic != 0x85868483 || u32CRC != m_Parameter.Crc) {
+    memset((void *)&m_Parameter, 0, sizeof(PARAMETER));
+    strcpy(m_Parameter.MqttServer, "1.15.67.50");
+    m_Parameter.MqttPort = 1883;
+    strcpy(m_Parameter.MqttUser, "mt7688");
+    strcpy(m_Parameter.MqttPwd, "12345678");
+    strcpy(m_Parameter.longitude, "30.326558");
+    strcpy(m_Parameter.latitude, "120.088792");
+    printf("Parameter Init\r\n");
+  }
+  ParameterCheck();
+  printf("MachType = %d ReportInterval = %d RunDelay = %d\r\n", m_Parameter.MachType, m_Parameter.ReportInterval, m_Parameter.RunDelay);
+}
+#ifdef MQTT_SUPPORT
+void SetMqttPwd(char *pwd)
+{
+  strcpy(m_Parameter.MqttPwd, pwd);
+  SaveParameter();
+}
+#endif
+static int shellMachTypeGet()
+{
+  return m_Parameter.MachType;
+}
+static int shellMachTypeSet(int val)
+{
+  m_Parameter.MachType = val;
+  SaveParameter();
   return 0;
 }

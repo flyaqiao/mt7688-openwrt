@@ -3,13 +3,13 @@
 #include <stdint.h>
 #include <errno.h>
 #include <string.h>
+#include <time.h>
+#include <sys/time.h>
 #include "mosquitto.h"
 #include "SysCall.h"
+#include "typedef.h"
 
-#define HOST "1.15.67.50"
-#define PORT  1883
 #define KEEP_ALIVE 60
-#define MSG_MAX_SIZE  512
 
 // 定义运行标志决定是否需要结束
 static int connected = 0;
@@ -43,20 +43,21 @@ void my_subscribe_callback(struct mosquitto *mosq, void *obj, int mid, int qos_c
   printf("Call the function: on_subscribe\n");
 }
 
-static int iCount = 0;
 void my_message_callback(struct mosquitto *mosq, void *obj, const struct mosquitto_message *msg)
 {
   char buff[32];
-  printf("Recieve a message of %s : %s [ %d ]\n", (char *)msg->topic, (char *)msg->payload, iCount);
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  printf("Recieve %s : %s [ %ld ] %ld:%ld\n", (char *)msg->topic, (char *)msg->payload, clock(), tv.tv_sec, tv.tv_usec);
   /*发布消息*/
-  sprintf(buff, "%d", iCount++);
+  sprintf(buff, "%ld", clock());
   mosquitto_publish(mosq, NULL, "topic2", strlen(buff), buff, 0, 0);
   if (0 == strcmp(msg->payload, "quit")) {
     mosquitto_disconnect(mosq);
   }
 }
 
-int MqttThread(void* arg)
+void MqttThread(void* arg)
 {
   int ret;
   struct mosquitto *mosq;
@@ -65,7 +66,7 @@ int MqttThread(void* arg)
   ret = mosquitto_lib_init();
   if (ret) {
     printf("Init lib error!\n");
-    return -1;
+    return;
   }
 
   // 创建一个订阅端实例
@@ -74,9 +75,8 @@ int MqttThread(void* arg)
   if (mosq == NULL) {
     printf("New sub_test error!\n");
     mosquitto_lib_cleanup();
-    return -1;
+    return;
   }
-  mosquitto_username_pw_set(mosq, "mt7688", "12345678");
   // 设置回调函数
   // 参数：句柄、回调函数
   mosquitto_connect_callback_set(mosq, my_connect_callback);
@@ -90,7 +90,8 @@ int MqttThread(void* arg)
     if (connected == 0) {
       // 连接至服务器
       // 参数：句柄、ip（host）、端口、心跳
-      ret = mosquitto_connect(mosq, HOST, PORT, KEEP_ALIVE);
+      mosquitto_username_pw_set(mosq, m_Parameter.MqttUser, m_Parameter.MqttPwd);
+      ret = mosquitto_connect(mosq, m_Parameter.MqttServer, m_Parameter.MqttPort, KEEP_ALIVE);
       if (ret) {
         printf("Connect server error!\n");
       }
@@ -104,5 +105,5 @@ int MqttThread(void* arg)
   mosquitto_lib_cleanup();
   printf("End!\n");
 
-  return 0;
+  return;
 }
