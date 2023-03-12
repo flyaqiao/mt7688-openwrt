@@ -14,6 +14,10 @@
 #define MUTEX_T pthread_mutex_t
 #define _popen popen
 #define _pclose pclose
+uint32_t GetTickCount();
+void *QueueCreate(int size, int count);
+int QueuePush(void *pQueue, void *pItem);
+int QueuePop(void *queue, void *pItem, int timeout);
 #endif
 void Sleep(int ms);
 int DelayMs(int ms);

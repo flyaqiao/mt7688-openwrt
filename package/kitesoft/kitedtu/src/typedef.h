@@ -28,12 +28,6 @@ typedef struct tagParameter {
   uint32_t MqttPort;
   char MqttUser[32];
   char MqttPwd[32];
-#ifdef FTP_SUPPORT
-  char FtpServer[32];
-  char FtpUser[32];
-  char FtpPwd[32];
-  uint32_t FtpPort;
-#endif
   uint32_t Crc;
 } PARAMETER;
 typedef enum {

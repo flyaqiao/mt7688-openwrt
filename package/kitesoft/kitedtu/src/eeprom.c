@@ -5,14 +5,18 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <string.h>
+#include <pthread.h>
 #include "SysCall.h"
 #include "typedef.h"
 
 static MUTEX_T m_CacheMutex;
+static int m_iPublishMsgId = 0;
+static int m_iReportIndex = 0;
 static int m_iCacheFd;
 struct {
   int Write;
   int Read;
+  pthread_cond_t notempty;
 } CacheDataHeader;
 
 typedef struct {
@@ -43,33 +47,120 @@ static int AT24CXX_Read(int addr, unsigned char *buf, int len)
 {
   //读操作
   lseek(m_iCacheFd, addr, SEEK_SET);//准备读，首先定位地址，因为前面写入的时候更新了当前文件偏移量，所以这边需要重新定位到0x40.
-  if (read(m_iCacheFd, buf, len) < 0)//读数据 
+  if (read(m_iCacheFd, buf, len) < 0)//读数据
     return -1;
   return 0;
 }
-static void ScanCacheData(void* arg)
+static void ScanCacheData(void *arg)
 {
   int i;
   uint16_t magic = 0;
   /*临界区上锁*/
   Lock(&m_CacheMutex);
-  CacheDataHeader.Read = 0;
-  CacheDataHeader.Write = 0;
+  CacheDataHeader.Read = -1;
+  CacheDataHeader.Write = -1;
   for (i = 0; i < CACHE_DATA_COUNT; i++) {
     if (AT24CXX_Read(CACHE_DATA_ADDR + i * CACHE_DATA_SIZE, (void *)&magic, sizeof(magic)) != 0)
       break;
-    if (magic == CACHE_DATA_MAGIC && CacheDataHeader.Read > i) {
-      CacheDataHeader.Read = i;
-      break;
+    if (magic == CACHE_DATA_MAGIC) {
+      CacheDataHeader.Write = i + 1;
+      if (CacheDataHeader.Read == -1)
+        CacheDataHeader.Read = i;
     }
   }
   if (CacheDataHeader.Read < 0)
     CacheDataHeader.Read = 0;
-  if (CacheDataHeader.Write < 0)
+  if (CacheDataHeader.Write < 0 || CacheDataHeader.Write >= CACHE_DATA_COUNT)
     CacheDataHeader.Write = 0;
+  //pthread_cond_signal(&CacheDataHeader.notempty);
   /*临界区释放锁*/
   Unlock(&m_CacheMutex);
   printf("Cache Pos: %d %d\r\n", CacheDataHeader.Read, CacheDataHeader.Write);
+}
+int MqttPublish(int *msgId, char *topic, char *payload);
+static void SendCacheData(void *arg)
+{
+  char szTopic[64];
+  char szMsg[256];
+  char szTmp[64];
+  int iTimeOut;
+  CacheData data;
+  while (1) {
+    /*临界区上锁*/
+    Lock(&m_CacheMutex);
+    //如果空了，则等待非空
+    while (CacheDataHeader.Write == CacheDataHeader.Read)
+      pthread_cond_wait(&CacheDataHeader.notempty, &m_CacheMutex);
+    AT24CXX_Read(CACHE_DATA_ADDR + CacheDataHeader.Read * CACHE_DATA_SIZE, (void *)&data, sizeof(data));
+    /*临界区释放锁*/
+    Unlock(&m_CacheMutex);
+    if (data.Magic != CACHE_DATA_MAGIC) {
+      if (CacheDataHeader.Read != CacheDataHeader.Write) {
+        CacheDataHeader.Read++;
+        if (CacheDataHeader.Read >= CACHE_DATA_COUNT)
+          CacheDataHeader.Read = 0;
+      }
+      continue;
+    }
+    if (m_iReportIndex == 0) {
+      iTimeOut = data.EndTime - data.BeginTime;
+      if (iTimeOut > (data.AlertTime + data.ReadyTime + data.RunTime)) {
+        switch (data.State) {
+        case 0:
+          data.RunTime += iTimeOut - (data.AlertTime + data.ReadyTime + data.RunTime);
+          break;
+        case 1:
+          data.ReadyTime += iTimeOut - (data.AlertTime + data.ReadyTime + data.RunTime);
+          break;
+        case 10:
+          data.AlertTime += iTimeOut - (data.AlertTime + data.ReadyTime + data.RunTime);
+          break;
+        }
+      }
+      sprintf(szMsg, "{\"tss\":%d,\"tse\":%d", data.BeginTime - 28800, iTimeOut);
+      if (data.AlertTime) {
+        sprintf(szTmp, ",\"r\":%d", data.AlertTime);
+        strcat(szMsg, szTmp);
+      }
+      if (data.ReadyTime) {
+        sprintf(szTmp, ",\"y\":%d", data.ReadyTime);
+        strcat(szMsg, szTmp);
+      }
+      if (data.RunTime) {
+        sprintf(szTmp, ",\"g\":%d", data.RunTime);
+        strcat(szMsg, szTmp);
+      }
+      if (data.Count) {
+        sprintf(szTmp, ",\"q\":%d", data.Count);
+        strcat(szMsg, szTmp);
+      }
+      sprintf(szTmp, ",\"s\":\"%02d\",\"k\":\"%02d\"}", data.State, data.RE);
+      strcat(szMsg, szTmp);
+      sprintf(szTopic, "d/%s/report", "mt7688");
+      m_iReportIndex = CacheDataHeader.Read + 1;
+      MqttPublish(&m_iPublishMsgId, szTopic, szMsg);
+      /*临界区上锁*/
+      Lock(&m_CacheMutex);
+      CacheDataHeader.Read++;
+      if (CacheDataHeader.Read >= CACHE_DATA_COUNT)
+        CacheDataHeader.Read = 0;
+      /*临界区释放锁*/
+      Unlock(&m_CacheMutex);
+    }
+  }
+}
+void FreeCacheData(int msgId)
+{
+  uint16_t data;
+  if (m_iPublishMsgId != msgId)
+    return;
+  /*临界区上锁*/
+  Lock(&m_CacheMutex);
+  data = 0xFFFF;
+  AT24CXX_Write(CACHE_DATA_ADDR + (m_iReportIndex - 1) * CACHE_DATA_SIZE, (void *)&data, 2);
+  m_iReportIndex = 0;
+  /*临界区释放锁*/
+  Unlock(&m_CacheMutex);
 }
 void LoadParameter(void);
 void InitCache()
@@ -78,8 +169,11 @@ void InitCache()
   m_iCacheFd = open("/sys/bus/i2c/devices/0-0050/eeprom", O_RDWR);//打开文件
   if (m_iCacheFd < 0)
     printf("####i2c test device open failed####/n");
+  pthread_cond_init(&CacheDataHeader.notempty, NULL);
   LoadParameter();
-  StartBackgroudTask(ScanCacheData, (void*)0, 99);
+  ScanCacheData(NULL);
+  //StartBackgroudTask(ScanCacheData, (void *)0, 99);
+  StartBackgroudTask(SendCacheData, (void *)0, 60);
 }
 int send_run_data(uint16_t run_time, uint16_t alert_time, uint16_t ready_time, time_t begin, time_t end, uint16_t state, uint16_t RE, uint16_t count)
 {
@@ -100,6 +194,7 @@ int send_run_data(uint16_t run_time, uint16_t alert_time, uint16_t ready_time, t
   CacheDataHeader.Write++;
   if (CacheDataHeader.Write >= CACHE_DATA_COUNT)
     CacheDataHeader.Write = 0;
+  pthread_cond_signal(&CacheDataHeader.notempty);
   /*临界区释放锁*/
   Unlock(&m_CacheMutex);
   printf("data size = %d cur pos = [%d, %d]\r\n", sizeof(data), CacheDataHeader.Read, CacheDataHeader.Write);
@@ -120,7 +215,7 @@ static void ParameterCheck(void)
 void SaveParameter(void)
 {
   unsigned char tmp[sizeof(PARAMETER)];
-  OpenLock(&m_CacheMutex);
+  Lock(&m_CacheMutex);
   /* CRC32 usage. */
   m_Parameter.Magic = 0x85868483;
   ParameterCheck();
