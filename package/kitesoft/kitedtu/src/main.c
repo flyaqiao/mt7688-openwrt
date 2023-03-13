@@ -85,6 +85,62 @@ static void GpioThreadIrq(void *arg)
     }
   }
 }
+static void GpioThread(void *arg)
+{
+  int i;
+  char buffer[16];
+  int len;
+  int value;
+  struct msg_data data;
+  int fds[COUNTOF(gpio_defs)];
+  uint8_t state[COUNTOF(gpio_defs)] = { 0x55 };
+  data.mtype = MSG_TYPE; // зЂвт2
+  for (i = 0; i < COUNTOF(gpio_defs); i++) {
+    gpio_set_direction(gpio_defs[i], GPIO_INPUT);
+    fds[i] = gpio_open(gpio_defs[i]);
+    read(fds[i], buffer, sizeof(buffer));
+    value = !!atoi(buffer);
+    if (value)
+      state[i] = 0xFF;
+    else
+      state[i] = 0x00;
+    switch (i) {
+    case 0: // COM
+      m_iComState = value;
+      break;
+    case 1: // RED
+      m_iRedState = value;
+      break;
+    case 2: // GREEN
+      m_iGreenState = value;
+      break;
+    case 3: // YELLOW
+      m_iYellowState = value;
+      break;
+    case 4: // CLOSE
+      m_iCloseState = value;
+      break;
+    case 5: // COUNT
+      m_iCountState = value;
+      break;
+    }
+  }
+  while (1) {
+    DelayMs(20);
+    for (i = 0; i < COUNTOF(gpio_defs); i++) {
+      lseek(fds[i], 0, SEEK_SET);
+      read(fds[i], buffer, sizeof(buffer));
+      value = !!atoi(buffer);
+      state[i] = (state[i] << 1) | value;
+      if (state[i] == 0x80 || state[i] == 0x7F) {
+        data.mindex = i;
+        data.mvalue = value;
+        gettimeofday(&data.timestamap, NULL);
+        QueuePush(m_pInputQueue, &data);
+      }
+    }
+  }
+}
 static RUN_STATE MachType0()
 {
   RUN_STATE state;
@@ -193,7 +249,7 @@ int main(int argc, char **argv)
   m_pInputQueue = QueueCreate(sizeof(struct msg_data), 32);
   InitCache();
   //StartBackgroudTask(AtPortThread, (void *)0, 64);
-  StartBackgroudTask(GpioThreadIrq, (void *)0, 66);
+  StartBackgroudTask(GpioThread, (void *)0, 66);
   StartBackgroudTask(MqttThread, (void *)0, 65);
   while (1) {
     struct msg_data rb;

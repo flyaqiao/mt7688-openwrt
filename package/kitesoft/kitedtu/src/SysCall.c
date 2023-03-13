@@ -58,7 +58,10 @@ int DelayMs(int ms)
 #ifdef WIN32
   Sleep(ms);       /*Just to let the system breathe */
 #else
-  usleep(ms * 1000);
+  struct timeval temp;
+  temp.tv_sec = ms / 1000;
+  temp.tv_usec = (ms % 1000) * 1000;
+  select(0, NULL, NULL, NULL, &temp);
 #endif
 }
 #ifndef WIN32
