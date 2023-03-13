@@ -15,19 +15,45 @@
 static int connected = 0;
 static struct mosquitto *m_mosq;
 
+int MqttPublish(int *msgId, char *topic, char *payload, int qos)
+{
+  char szTopic[128];
+  sprintf(szTopic, "d/%s/%s", m_Parameter.machid, topic);
+  return mosquitto_publish(m_mosq, msgId, szTopic, strlen(payload), payload, 0, 0) == MOSQ_ERR_SUCCESS;
+}
+int MqttSubscribe(char *topic, int qos)
+{
+  char szTopic[128];
+  sprintf(szTopic, "d/%s/%s", m_Parameter.machid, topic);
+  if (mosquitto_subscribe(m_mosq, NULL, szTopic, qos)) {
+    printf("Subscribe %s error!\n", topic);
+    return 0;
+  }
+  return 1;
+}
 void my_connect_callback(struct mosquitto *mosq, void *obj, int rc)
 {
   if (rc) {
     // 连接错误，退出程序
-    printf("on_connect error!\n");
+    printf("on_connect error![ %d ]\n", rc);
   } else {
+    static int times = 0;
+    char szData[256];
+    time_t tt;
     connected = 1;
     // 订阅主题
     // 参数：句柄、id、订阅的主题、qos
-    if (mosquitto_subscribe(mosq, NULL, "topic1", 2)) {
-      printf("Set the topic error!\n");
+    if (MqttSubscribe("cfg/set", 0) == 0)
       connected = 0;
-    }
+    if (MqttSubscribe("upg", 0) == 0)
+      connected = 0;
+    if (MqttSubscribe("state/get", 0) == 0)
+      connected = 0;
+    time(&tt);
+    sprintf(szData, "{\"date\":%d,\"lat\":\"%s\",\"long\":\"%s\",\"ver\":%d,\"MachType\":%d,\"Times\":%d}",
+            tt, m_Parameter.latitude, m_Parameter.longitude, 1, m_Parameter.MachType, times++);
+    MqttPublish(NULL, "reg", szData, 0);
+    //report_now();
   }
 }
 
@@ -54,11 +80,6 @@ void my_message_callback(struct mosquitto *mosq, void *obj, const struct mosquit
   gettimeofday(&tv, NULL);
   printf("Recieve %s : %s [ %ld ] %ld:%ld\n", (char *)msg->topic, (char *)msg->payload, clock(), tv.tv_sec, tv.tv_usec);
 }
-int MqttPublish(int *msgId, char *topic, char *payload)
-{
-  //printf("Publish [%d]\r\n", *msgId);
-  return mosquitto_publish(m_mosq, msgId, topic, strlen(payload), payload, 0, 0) == MOSQ_ERR_SUCCESS;
-}
 
 void MqttThread(void *arg)
 {
@@ -71,7 +92,7 @@ void MqttThread(void *arg)
   }
   // 创建一个订阅端实例
   // 参数：id（不需要则为NULL）、clean_start、用户数据
-  m_mosq = mosquitto_new("sub_test", true, NULL);
+  m_mosq = mosquitto_new(m_Parameter.machid, true, NULL);
   if (m_mosq == NULL) {
     printf("New sub_test error!\n");
     mosquitto_lib_cleanup();

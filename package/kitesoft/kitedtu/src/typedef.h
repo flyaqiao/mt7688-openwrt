@@ -21,7 +21,7 @@ typedef struct tagParameter {
   uint32_t CountReport; // 产量上报数量
   uint32_t LogReport; // 日志上报
   uint32_t RunDelay;    // 运行灯灭,判断待机的间隔(ms)
-  uint32_t DebugMode;   // 测试模式
+  char machid[32];
   char longitude[20]; // 经度
   char latitude[20];  // 纬度
   char MqttServer[32];

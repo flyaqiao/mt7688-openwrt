@@ -290,7 +290,6 @@ int main(int argc, char **argv)
       state = MachType3();
     else    // 机加
       state = MachType0();
-    //printf("###[%d, %d, %d, %d] %d %d\r\n", m_iComState, m_iRedState, m_iYellowState, m_iGreenState, m_RunData.State, state);
     if (m_RunData.State != state || reportTime < GetTickCount() || (m_Parameter.CountReport > 0 && m_RunData.Count >= m_Parameter.CountReport)) {
       MACH_STATE rd;
       if (state == MS_NONE)
@@ -318,7 +317,6 @@ int main(int argc, char **argv)
       send_run_data(rd.RunTime, rd.AlertTime, rd.ReadyTime, rd.BeginTime, rd.EndTime, state, rd.RE, rd.Count);
       reportTime = GetTickCount() + m_Parameter.ReportInterval * 1000;
     }
-    //printf("读消息队列成功[%d]%d:%d,%d,%d\n", rb.timestamap.tv_usec, CLOCKS_PER_SEC, rb.mindex, rb.mvalue, (int)rb.timestamap.tv_sec);
   }
   return 0;
 }

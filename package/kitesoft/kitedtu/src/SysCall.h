@@ -21,6 +21,7 @@ int QueuePop(void *queue, void *pItem, int timeout);
 #endif
 void Sleep(int ms);
 int DelayMs(int ms);
+int execmd(char *input, char *output, int maxlen);
 int StartBackgroudTask(void* fn, void* param, int priority);
 
 void OpenLock(MUTEX_T* p);

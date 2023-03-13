@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <pthread.h>
+#include <time.h>
 #include "SysCall.h"
 #include "typedef.h"
 
@@ -77,7 +78,7 @@ static void ScanCacheData(void *arg)
   Unlock(&m_CacheMutex);
   printf("Cache Pos: %d %d\r\n", CacheDataHeader.Read, CacheDataHeader.Write);
 }
-int MqttPublish(int *msgId, char *topic, char *payload);
+int MqttPublish(int *msgId, char *topic, char *payload, int qos);
 static void SendCacheData(void *arg)
 {
   char szTopic[64];
@@ -136,9 +137,9 @@ static void SendCacheData(void *arg)
       }
       sprintf(szTmp, ",\"s\":\"%02d\",\"k\":\"%02d\"}", data.State, data.RE);
       strcat(szMsg, szTmp);
-      sprintf(szTopic, "d/%s/report", "mt7688");
+      sprintf(szTopic, "report");
       m_iReportIndex = CacheDataHeader.Read + 1;
-      MqttPublish(&m_iPublishMsgId, szTopic, szMsg);
+      MqttPublish(&m_iPublishMsgId, szTopic, szMsg, 0);
       /*临界区上锁*/
       Lock(&m_CacheMutex);
       CacheDataHeader.Read++;
@@ -187,7 +188,9 @@ int send_run_data(uint16_t run_time, uint16_t alert_time, uint16_t ready_time, t
   data.BeginTime = begin;
   data.EndTime = end;
   data.RE = RE;
-  printf("%s(G:%d,R:%d,Y:%d,[%ld,%ld],%d,%d,%d)\r\n", __func__, run_time, alert_time, ready_time, begin, end, state, RE, count);
+  struct tm *tp = localtime(&begin);
+  printf("%s(G:%d,R:%d,Y:%d,[%d/%02d/%02d %02d:%02d:%02d],%d,%d,%d)\r\n", __func__, run_time, alert_time, ready_time,
+         tp->tm_year + 1900, tp->tm_mon + 1, tp->tm_mday, tp->tm_hour, tp->tm_min, tp->tm_sec, state, RE, count);
   /*临界区上锁*/
   Lock(&m_CacheMutex);
   AT24CXX_Write(CACHE_DATA_ADDR + CacheDataHeader.Write * CACHE_DATA_SIZE, (void *)&data, sizeof(data));
@@ -238,6 +241,7 @@ void LoadParameter(void)
   /* CRC32 usage. */
   u32CRC = CalcCRC32((unsigned char *)&m_Parameter, sizeof(m_Parameter) - sizeof(uint32_t), POLY32, 0);
   if (m_Parameter.Magic != 0x85868483 || u32CRC != m_Parameter.Crc) {
+    char *p;
     memset((void *)&m_Parameter, 0, sizeof(PARAMETER));
     strcpy(m_Parameter.MqttServer, "1.15.67.50");
     m_Parameter.MqttPort = 1883;
@@ -245,10 +249,18 @@ void LoadParameter(void)
     strcpy(m_Parameter.MqttPwd, "12345678");
     strcpy(m_Parameter.longitude, "30.326558");
     strcpy(m_Parameter.latitude, "120.088792");
+    execmd("ifconfig | grep br-lan | awk '{ print $5 }'  | sed 's/://g'", m_Parameter.machid, sizeof(m_Parameter.machid));
+    m_Parameter.machid[12] = 0;
+    p = m_Parameter.machid;
+    while (*p) {
+      if (*p >= 'A' && *p <= 'F')
+        *p += 32;
+      p++;
+    }
     printf("Parameter Init\r\n");
   }
   ParameterCheck();
-  printf("MachType = %d ReportInterval = %d RunDelay = %d\r\n", m_Parameter.MachType, m_Parameter.ReportInterval, m_Parameter.RunDelay);
+  printf("MachType = %d ReportInterval = %d RunDelay = %d Version = %d\r\n", m_Parameter.MachType, m_Parameter.ReportInterval, m_Parameter.RunDelay, 1);
 }
 #ifdef MQTT_SUPPORT
 void SetMqttPwd(char *pwd)
