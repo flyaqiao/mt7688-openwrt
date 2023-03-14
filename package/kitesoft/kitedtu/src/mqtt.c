@@ -6,6 +6,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include "mosquitto.h"
+#include "cJSON.h"
 #include "SysCall.h"
 #include "typedef.h"
 
@@ -31,7 +32,7 @@ int MqttSubscribe(char *topic, int qos)
   }
   return 1;
 }
-void my_connect_callback(struct mosquitto *mosq, void *obj, int rc)
+static void my_connect_callback(struct mosquitto *mosq, void *obj, int rc)
 {
   if (rc) {
     // 连接错误，退出程序
@@ -50,35 +51,126 @@ void my_connect_callback(struct mosquitto *mosq, void *obj, int rc)
     if (MqttSubscribe("state/get", 0) == 0)
       connected = 0;
     time(&tt);
-    sprintf(szData, "{\"date\":%d,\"lat\":\"%s\",\"long\":\"%s\",\"ver\":%d,\"MachType\":%d,\"Times\":%d}",
+    sprintf(szData, "{\"date\":%ld,\"lat\":\"%s\",\"long\":\"%s\",\"ver\":%d,\"MachType\":%d,\"Times\":%d}",
             tt, m_Parameter.latitude, m_Parameter.longitude, 1, m_Parameter.MachType, times++);
     MqttPublish(NULL, "reg", szData, 0);
     //report_now();
   }
 }
 
-void my_disconnect_callback(struct mosquitto *mosq, void *obj, int rc)
+static void my_disconnect_callback(struct mosquitto *mosq, void *obj, int rc)
 {
   //printf("Call the function: my_disconnect_callback\n");
   connected = 0;
 }
 
-void my_subscribe_callback(struct mosquitto *mosq, void *obj, int mid, int qos_count, const int *granted_qos)
+static void my_subscribe_callback(struct mosquitto *mosq, void *obj, int mid, int qos_count, const int *granted_qos)
 {
   printf("Subscribe success\r\n");
 }
 
-void my_publish_callback(struct mosquitto *mosq, void *obj, int msgId)
+static void my_publish_callback(struct mosquitto *mosq, void *obj, int msgId)
 {
   void FreeCacheData(int msgId);
   FreeCacheData(msgId);
 }
-void my_message_callback(struct mosquitto *mosq, void *obj, const struct mosquitto_message *msg)
+static void Config2Json(char *msg)
 {
-  char buff[32];
-  struct timeval tv;
-  gettimeofday(&tv, NULL);
-  printf("Recieve %s : %s [ %ld ] %ld:%ld\n", (char *)msg->topic, (char *)msg->payload, clock(), tv.tv_sec, tv.tv_usec);
+  sprintf(msg, "{\"MachType\":%d,\"ReportInterval\":%d,\"CountReport\":%d,\"RunDelay\":%d,\"LogReport\":%d}",
+          m_Parameter.MachType, m_Parameter.ReportInterval, m_Parameter.CountReport, m_Parameter.RunDelay, m_Parameter.LogReport);
+}
+static int Json2Config(char *msg)
+{
+  cJSON *cjson = cJSON_Parse(msg);//将JSON字符串转换成JSON结构体
+  if (cjson != NULL) {  //判断转换是否成功
+    void SaveParameter(void);
+    PARAMETER para = m_Parameter;
+    if (cJSON_GetObjectItem(cjson, "MachType") != NULL) {
+      cJSON *obj = cJSON_GetObjectItem(cjson, "MachType");
+      if (obj->type == cJSON_String)
+        m_Parameter.MachType = atoi(obj->valuestring);
+      else if (obj->type == cJSON_Number)
+        m_Parameter.MachType = obj->valueint;
+      if (m_Parameter.MachType > 2)
+        m_Parameter.MachType = para.MachType;
+    }
+    if (cJSON_GetObjectItem(cjson, "ReportInterval") != NULL) {
+      cJSON *obj = cJSON_GetObjectItem(cjson, "ReportInterval");
+      if (obj->type == cJSON_String)
+        m_Parameter.ReportInterval = atoi(obj->valuestring);
+      else if (obj->type == cJSON_Number)
+        m_Parameter.ReportInterval = obj->valueint;
+      if (m_Parameter.ReportInterval > 300)
+        m_Parameter.ReportInterval = 300;
+    }
+    if (cJSON_GetObjectItem(cjson, "CountReport") != NULL) {
+      cJSON *obj = cJSON_GetObjectItem(cjson, "CountReport");
+      if (obj->type == cJSON_String)
+        m_Parameter.CountReport = atoi(obj->valuestring);
+      else if (obj->type == cJSON_Number)
+        m_Parameter.CountReport = obj->valueint;
+    }
+    if (cJSON_GetObjectItem(cjson, "LogReport") != NULL) {
+      cJSON *obj = cJSON_GetObjectItem(cjson, "LogReport");
+      if (obj->type == cJSON_String)
+        m_Parameter.LogReport = atoi(obj->valuestring);
+      else if (obj->type == cJSON_Number)
+        m_Parameter.LogReport = obj->valueint;
+    }
+    if (cJSON_GetObjectItem(cjson, "RunDelay") != NULL) {
+      cJSON *obj = cJSON_GetObjectItem(cjson, "RunDelay");
+      if (obj->type == cJSON_String)
+        m_Parameter.RunDelay = atoi(obj->valuestring);
+      else if (obj->type == cJSON_Number)
+        m_Parameter.RunDelay = obj->valueint;
+      if (m_Parameter.RunDelay < 500 || m_Parameter.RunDelay > 30000)
+        m_Parameter.RunDelay = 3000;
+    }
+    if (cJSON_GetObjectItem(cjson, "MqttPort") != NULL) {
+      cJSON *obj = cJSON_GetObjectItem(cjson, "MqttPort");
+      if (obj->type == cJSON_String)
+        m_Parameter.MqttPort = atoi(obj->valuestring);
+      else if (obj->type == cJSON_Number)
+        m_Parameter.MqttPort = obj->valueint;
+    }
+    if (cJSON_GetObjectItem(cjson, "MqttServer") != NULL)
+      strncpy(m_Parameter.MqttServer, cJSON_GetObjectItem(cjson, "MqttServer")->valuestring, 31);
+    SaveParameter();
+    cJSON_Delete(cjson);//清除结构体
+    if (m_Parameter.MqttPort != para.MqttPort || strcmp(m_Parameter.MqttServer, para.MqttServer) != 0)
+      return 1;
+  } else
+    printf("cfg/set error...(%s)\r\n", msg);
+  return 0;
+}
+void report_state(void)
+{
+  char szPayload[128];
+  void State2Json(char *msg);
+  State2Json(szPayload);
+  MqttPublish(NULL, "state/report", szPayload, 0);
+}
+static void my_message_callback(struct mosquitto *mosq, void *obj, const struct mosquitto_message *msg)
+{
+  char szMachId[128];
+  char szTopic[128];
+  char szPayload[256];
+  if (sscanf(msg->topic, "d/%[^/]/%s", szMachId, szTopic) == 2 && strcmp(szMachId, m_Parameter.machid) == 0) {
+    if (strcmp(szTopic, "upg") == 0) {
+      //ftp_upgrade(mqtt_data.Msg);
+    } else if (strcmp(szTopic, "cfg/set") == 0) {
+      if (Json2Config(msg->payload))
+        mosquitto_disconnect(mosq);
+      Config2Json(szPayload);
+      MqttPublish(NULL, "cfg/report", szPayload, 0);
+    } else if (strcmp(szTopic, "state/get") == 0) {
+      void set_state_report(int on);
+      if (strstr(msg->payload, "on") != NULL)
+        set_state_report(1);
+      else
+        set_state_report(0);
+    }
+  }
 }
 
 void MqttThread(void *arg)

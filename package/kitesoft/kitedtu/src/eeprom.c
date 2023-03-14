@@ -81,7 +81,6 @@ static void ScanCacheData(void *arg)
 int MqttPublish(int *msgId, char *topic, char *payload, int qos);
 static void SendCacheData(void *arg)
 {
-  char szTopic[64];
   char szMsg[256];
   char szTmp[64];
   int iTimeOut;
@@ -137,9 +136,8 @@ static void SendCacheData(void *arg)
       }
       sprintf(szTmp, ",\"s\":\"%02d\",\"k\":\"%02d\"}", data.State, data.RE);
       strcat(szMsg, szTmp);
-      sprintf(szTopic, "report");
       m_iReportIndex = CacheDataHeader.Read + 1;
-      MqttPublish(&m_iPublishMsgId, szTopic, szMsg, 0);
+      MqttPublish(&m_iPublishMsgId, "report", szMsg, 0);
       /*临界区上锁*/
       Lock(&m_CacheMutex);
       CacheDataHeader.Read++;
