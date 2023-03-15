@@ -44,6 +44,7 @@ endef
 define Package/$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)/bin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/$(PKG_NAME) $(1)/bin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/kiteupg.sh $(1)/bin/kiteupg.sh
 endef
 
 

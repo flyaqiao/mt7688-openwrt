@@ -72,8 +72,9 @@ void AtPortThread(void *arg)
   new_cfg = old_cfg;
   cfmakeraw(&new_cfg);
   //4.配置波特率
-  cfsetispeed(&new_cfg, B115200);
-  cfsetospeed(&new_cfg, B115200);
+  //cfsetispeed(&new_cfg, B115200);
+  //cfsetospeed(&new_cfg, B115200);
+  cfsetspeed(&new_cfg, B115200);
   //5.设置控制标志
   new_cfg.c_cflag |= CREAD | CLOCAL;//使能数据接收和本地模式
   /* struct termio newtio; */
@@ -85,11 +86,11 @@ void AtPortThread(void *arg)
   new_cfg.c_cflag |= CS8;//8位数据位
   new_cfg.c_cflag &= ~PARENB;//无校验
   //7.设置阻塞模式
-  tcflush(serial_fd, TCIOFLUSH);
+  fcntl(serial_fd, F_SETFL, 0); //设为阻塞
   //收到1字节解除阻塞
-  new_cfg.c_cc[VTIME] = 100;
+  new_cfg.c_cc[VTIME] = 1;
   new_cfg.c_cc[VMIN] = 1;
-  tcflush(serial_fd, TCIFLUSH); // 刷清输入缓存区
+  tcflush(serial_fd, TCIFLUSH);
   //8.使能配置生效
   if (-1 == tcsetattr(serial_fd, TCSANOW, &new_cfg)) {
     printf("tcgetattr");
@@ -97,7 +98,6 @@ void AtPortThread(void *arg)
   }
   while (1) {
     memset(szComm, 0, sizeof(szComm));
-    tcflush(serial_fd, TCIFLUSH);
     int len = read(serial_fd, szComm, sizeof(szComm) - 1);
     if (len > 0)
       printf("%s", szComm); /* 打印从串口读出的字符串 */

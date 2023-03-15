@@ -342,16 +342,18 @@ void MqttThread(void *arg);
 void CommThread(void *arg);
 void InitCache();
 void report_state(void);
-//void AtPortThread(void* arg);
+void AtPortThread(void* arg);
+void get_location(void);
 int main(int argc, char **argv)
 {
   m_pInputQueue = QueueCreate(sizeof(struct msg_data), 32);
   sem_init(&state_sem, 0, 0);
   InitCache();
-  //StartBackgroudTask(AtPortThread, (void *)0, 64);
+  StartBackgroudTask(AtPortThread, (void *)0, 63);
   StartBackgroudTask(GpioThread, (void *)0, 66);
   StartBackgroudTask(InputThread, (void *)0, 65);
   StartBackgroudTask(MqttThread, (void *)0, 64);
+  get_location();
   while (1) {
     struct timeval now;
     struct timespec abstime;
