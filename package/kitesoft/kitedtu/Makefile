@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 # Name and release number of this package
 PKG_NAME:=kitedtu
-PKG_VERSION:=1.0
+PKG_VERSION:=1
 
 PKG_BUILD_DIR := $(BUILD_DIR)/$(PKG_NAME)
 
@@ -44,7 +44,6 @@ endef
 define Package/$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)/bin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/$(PKG_NAME) $(1)/bin/
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/kiteupg.sh $(1)/bin/kiteupg.sh
 endef
 
 

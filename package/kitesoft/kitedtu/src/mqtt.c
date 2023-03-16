@@ -154,7 +154,7 @@ int asyncupgarde(char *url)
 {
 #ifndef WIN31
   char cmd[128];
-  sprintf(cmd, "wget -O- %s | sh &", url);
+  sprintf(cmd, "wget -q -O- %s | sh &", url);
   system(cmd);
 #endif
 }
