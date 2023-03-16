@@ -39,6 +39,7 @@ typedef struct {
 #define CACHE_DATA_SIZE sizeof(CacheData)
 #define CACHE_DATA_COUNT (31 * 1024 / CACHE_DATA_SIZE)
 #define CACHE_DATA_MAGIC 0x5A93
+static void SaveParameter(void);
 
 static int AT24CXX_Write(int addr, unsigned char *buf, int len)
 {
@@ -156,6 +157,7 @@ static void SendCacheData(void *arg)
           CacheDataHeader.Read = 0;
       }
     }
+    SaveParameter();
     /*临界区释放锁*/
     Unlock(&m_CacheMutex);
     Sleep(1);
@@ -224,8 +226,19 @@ static void ParameterCheck(void)
   if (m_Parameter.RunDelay == 0 || m_Parameter.RunDelay > 30000)
     m_Parameter.RunDelay = 3000;
 }
-void SaveParameter(void)
+static void SaveParameter(void)
 {
+  if (memcmp(&m_Parameter, &m_ParameterBak, sizeof(m_Parameter)) != 0) {
+    unsigned char tmp[sizeof(PARAMETER)];
+    /* CRC32 usage. */
+    m_Parameter.Magic = 0x85868483;
+    ParameterCheck();
+    m_Parameter.Crc = CalcCRC32((unsigned char *)&m_Parameter, sizeof(m_Parameter) - sizeof(uint32_t), POLY32, 0);
+    Rc4Encrypt((unsigned char *)&m_Parameter, tmp, sizeof(m_Parameter), keys);
+    AT24CXX_Write(0, (uint8_t *)tmp, sizeof(m_Parameter));
+    memcpy(&m_ParameterBak, &m_Parameter, sizeof(m_Parameter));
+  }
+#if 0
   unsigned char tmp[sizeof(PARAMETER)];
   Lock(&m_CacheMutex);
   /* CRC32 usage. */
@@ -236,6 +249,7 @@ void SaveParameter(void)
   AT24CXX_Write(0, (uint8_t *)tmp, sizeof(m_Parameter));
   /*临界区释放锁*/
   Unlock(&m_CacheMutex);
+#endif
 }
 void LoadParameter(void)
 {
