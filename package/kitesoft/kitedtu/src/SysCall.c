@@ -131,7 +131,7 @@ void PrintMemory8(unsigned int startAddr, unsigned int size)
 #ifndef WIN32
 void Sleep(int ms)
 {
-  sleep(ms);
+  usleep(ms * 1000);
 }
 struct queue {
   int item_size;

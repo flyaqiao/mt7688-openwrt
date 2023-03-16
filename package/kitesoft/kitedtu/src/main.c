@@ -35,8 +35,10 @@ static time_t  m_iRunDelay = 0;
 static uint8_t m_bReportState = 0;
 static sem_t state_sem;
 static struct GpioState m_GpioStateBak;
+int GprsGetCsq();
+void GprsInit();
+void GprsGetLocation(void);
 
-PARAMETER m_Parameter;
 static void *m_pInputQueue = NULL;
 const uint32_t gpio_defs[] = { GPIO18, GPIO15, GPIO16, GPIO17, GPIO39, GPIO40 };
 static void GpioThreadIrq(void *arg)
@@ -257,7 +259,7 @@ static RUN_STATE MachType3()  // ×¢ËÜÎÞÐÅºÅµÆ
 void State2Json(char *msg)
 {
   sprintf(msg, "{\"COM\":%d,\"G\":%d,\"Y\":%d,\"R\":%d,\"Q\":%d,\"Q1\":%d,\"MachType\":%d,\"CSQ\":%d}",
-          m_GpioState.Com, m_GpioState.Green, m_GpioState.Yellow, m_GpioState.Red, m_GpioState.Count, m_GpioState.Close, m_Parameter.MachType, 9/*get_4g_csq()*/);
+          m_GpioState.Com, m_GpioState.Green, m_GpioState.Yellow, m_GpioState.Red, m_GpioState.Count, m_GpioState.Close, m_Parameter.MachType, GprsGetCsq());
 }
 void set_state_report(int on)
 {
@@ -342,24 +344,24 @@ void MqttThread(void *arg);
 void CommThread(void *arg);
 void InitCache();
 void report_state(void);
-void AtPortThread(void* arg);
-void get_location(void);
 int main(int argc, char **argv)
 {
   m_pInputQueue = QueueCreate(sizeof(struct msg_data), 32);
   sem_init(&state_sem, 0, 0);
   InitCache();
-  StartBackgroudTask(AtPortThread, (void *)0, 63);
+  GprsInit();
+  GprsGetLocation();
+  //StartBackgroudTask(AtPortThread, (void *)0, 63);
   StartBackgroudTask(GpioThread, (void *)0, 66);
   StartBackgroudTask(InputThread, (void *)0, 65);
   StartBackgroudTask(MqttThread, (void *)0, 64);
-  get_location();
   while (1) {
     struct timeval now;
     struct timespec abstime;
     gettimeofday(&now, NULL);
     abstime.tv_sec = now.tv_sec + 60;
     abstime.tv_nsec = 0;
+    GprsGetLocation();
     sem_timedwait(&state_sem, &abstime);
     if (m_bReportState) {
       if (memcmp(&m_GpioStateBak, &m_GpioState, sizeof(m_GpioStateBak)) != 0) {

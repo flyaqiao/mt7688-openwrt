@@ -10,14 +10,16 @@
 #include "SysCall.h"
 #include "typedef.h"
 
+PARAMETER m_Parameter;
+PARAMETER m_ParameterBak;
 static MUTEX_T m_CacheMutex;
 static int m_iPublishMsgId = 0;
-static int m_iReportIndex = 0;
 static int m_iCacheFd;
 struct {
   int Write;
   int Read;
   pthread_cond_t notempty;
+  pthread_cond_t sendok;
 } CacheDataHeader;
 
 typedef struct {
@@ -84,6 +86,8 @@ static void SendCacheData(void *arg)
   char szMsg[256];
   char szTmp[64];
   int iTimeOut;
+  struct timeval now;
+  struct timespec abstime;
   CacheData data;
   while (1) {
     /*临界区上锁*/
@@ -102,62 +106,64 @@ static void SendCacheData(void *arg)
       }
       continue;
     }
-    if (m_iReportIndex == 0) {
-      iTimeOut = data.EndTime - data.BeginTime;
-      if (iTimeOut > (data.AlertTime + data.ReadyTime + data.RunTime)) {
-        switch (data.State) {
-        case 0:
-          data.RunTime += iTimeOut - (data.AlertTime + data.ReadyTime + data.RunTime);
-          break;
-        case 1:
-          data.ReadyTime += iTimeOut - (data.AlertTime + data.ReadyTime + data.RunTime);
-          break;
-        case 10:
-          data.AlertTime += iTimeOut - (data.AlertTime + data.ReadyTime + data.RunTime);
-          break;
-        }
+    iTimeOut = data.EndTime - data.BeginTime;
+    if (iTimeOut > (data.AlertTime + data.ReadyTime + data.RunTime)) {
+      switch (data.State) {
+      case 0:
+        data.RunTime += iTimeOut - (data.AlertTime + data.ReadyTime + data.RunTime);
+        break;
+      case 1:
+        data.ReadyTime += iTimeOut - (data.AlertTime + data.ReadyTime + data.RunTime);
+        break;
+      case 10:
+        data.AlertTime += iTimeOut - (data.AlertTime + data.ReadyTime + data.RunTime);
+        break;
       }
-      sprintf(szMsg, "{\"tss\":%d,\"tse\":%d", data.BeginTime - 28800, iTimeOut);
-      if (data.AlertTime) {
-        sprintf(szTmp, ",\"r\":%d", data.AlertTime);
-        strcat(szMsg, szTmp);
-      }
-      if (data.ReadyTime) {
-        sprintf(szTmp, ",\"y\":%d", data.ReadyTime);
-        strcat(szMsg, szTmp);
-      }
-      if (data.RunTime) {
-        sprintf(szTmp, ",\"g\":%d", data.RunTime);
-        strcat(szMsg, szTmp);
-      }
-      if (data.Count) {
-        sprintf(szTmp, ",\"q\":%d", data.Count);
-        strcat(szMsg, szTmp);
-      }
-      sprintf(szTmp, ",\"s\":\"%02d\",\"k\":\"%02d\"}", data.State, data.RE);
+    }
+    sprintf(szMsg, "{\"tss\":%d,\"tse\":%d", data.BeginTime - 28800, iTimeOut);
+    if (data.AlertTime) {
+      sprintf(szTmp, ",\"r\":%d", data.AlertTime);
       strcat(szMsg, szTmp);
-      m_iReportIndex = CacheDataHeader.Read + 1;
-      MqttPublish(&m_iPublishMsgId, "report", szMsg, 0);
-      /*临界区上锁*/
-      Lock(&m_CacheMutex);
+    }
+    if (data.ReadyTime) {
+      sprintf(szTmp, ",\"y\":%d", data.ReadyTime);
+      strcat(szMsg, szTmp);
+    }
+    if (data.RunTime) {
+      sprintf(szTmp, ",\"g\":%d", data.RunTime);
+      strcat(szMsg, szTmp);
+    }
+    if (data.Count) {
+      sprintf(szTmp, ",\"q\":%d", data.Count);
+      strcat(szMsg, szTmp);
+    }
+    sprintf(szTmp, ",\"s\":\"%02d\",\"k\":\"%02d\"}", data.State, data.RE);
+    strcat(szMsg, szTmp);
+    /*临界区上锁*/
+    Lock(&m_CacheMutex);
+    MqttPublish(&m_iPublishMsgId, "report", szMsg, 0);
+    gettimeofday(&now, NULL);
+    abstime.tv_sec = now.tv_sec + 5;
+    abstime.tv_nsec = 0;
+    if (pthread_cond_timedwait(&CacheDataHeader.sendok, &m_CacheMutex, &abstime) == 0) {
+      uint16_t data;
+      data = 0xFFFF;
+      AT24CXX_Write(CACHE_DATA_ADDR + CacheDataHeader.Read * CACHE_DATA_SIZE, (void *)&data, 2);
       CacheDataHeader.Read++;
       if (CacheDataHeader.Read >= CACHE_DATA_COUNT)
         CacheDataHeader.Read = 0;
-      /*临界区释放锁*/
-      Unlock(&m_CacheMutex);
     }
+    /*临界区释放锁*/
+    Unlock(&m_CacheMutex);
   }
 }
-void FreeCacheData(int msgId)
+void PublishAck(int msgId, int ok)
 {
-  uint16_t data;
-  if (m_iPublishMsgId != msgId)
+  if (msgId != m_iPublishMsgId)
     return;
   /*临界区上锁*/
   Lock(&m_CacheMutex);
-  data = 0xFFFF;
-  AT24CXX_Write(CACHE_DATA_ADDR + (m_iReportIndex - 1) * CACHE_DATA_SIZE, (void *)&data, 2);
-  m_iReportIndex = 0;
+  pthread_cond_signal(&CacheDataHeader.sendok);
   /*临界区释放锁*/
   Unlock(&m_CacheMutex);
 }
@@ -169,6 +175,7 @@ void InitCache()
   if (m_iCacheFd < 0)
     printf("####i2c test device open failed####/n");
   pthread_cond_init(&CacheDataHeader.notempty, NULL);
+  pthread_cond_init(&CacheDataHeader.sendok, NULL);
   LoadParameter();
   ScanCacheData(NULL);
   //StartBackgroudTask(ScanCacheData, (void *)0, 99);
@@ -236,6 +243,7 @@ void LoadParameter(void)
   /*临界区释放锁*/
   Unlock(&m_CacheMutex);
   Rc4Decrypt(tmp, (unsigned char *)&m_Parameter, sizeof(m_Parameter), keys);
+  memcpy(&m_ParameterBak, &m_Parameter, sizeof(m_ParameterBak));
   /* CRC32 usage. */
   u32CRC = CalcCRC32((unsigned char *)&m_Parameter, sizeof(m_Parameter) - sizeof(uint32_t), POLY32, 0);
   if (m_Parameter.Magic != 0x85868483 || u32CRC != m_Parameter.Crc) {
@@ -255,6 +263,7 @@ void LoadParameter(void)
         *p += 32;
       p++;
     }
+    strcpy(m_Parameter.MqttUser, m_Parameter.machid);
     printf("Parameter Init\r\n");
   }
   ParameterCheck();
@@ -264,7 +273,6 @@ void LoadParameter(void)
 void SetMqttPwd(char *pwd)
 {
   strcpy(m_Parameter.MqttPwd, pwd);
-  SaveParameter();
 }
 #endif
 static int shellMachTypeGet()
@@ -274,6 +282,5 @@ static int shellMachTypeGet()
 static int shellMachTypeSet(int val)
 {
   m_Parameter.MachType = val;
-  SaveParameter();
   return 0;
 }
