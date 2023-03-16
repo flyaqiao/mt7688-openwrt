@@ -1,3 +1,4 @@
+#! /bin/sh
 #当前工程目录
 work_path=$(dirname $(readlink -f $0))
 echo $work_path
