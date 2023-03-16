@@ -19,14 +19,13 @@ typedef struct tagParameter {
   uint32_t MachType; // 设备类型(0:机加工,1:注塑,2:HASS)
   uint32_t ReportInterval;  // 上报间隔(s)
   uint32_t CountReport; // 产量上报数量
-  uint32_t LogReport; // 日志上报
   uint32_t RunDelay;    // 运行灯灭,判断待机的间隔(ms)
-  char machid[32];
+  char MACID[32];
+  char CCID[32];
   char longitude[20]; // 经度
   char latitude[20];  // 纬度
   char MqttServer[32];
   uint32_t MqttPort;
-  char MqttUser[32];
   char MqttPwd[32];
   uint32_t Crc;
 } PARAMETER;

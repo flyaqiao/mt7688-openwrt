@@ -3,12 +3,14 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include <string.h>
 #include <pthread.h>
 #include <time.h>
 #include "SysCall.h"
 #include "typedef.h"
+#include "version.h"
 
 PARAMETER m_Parameter;
 PARAMETER m_ParameterBak;
@@ -141,20 +143,22 @@ static void SendCacheData(void *arg)
     strcat(szMsg, szTmp);
     /*临界区上锁*/
     Lock(&m_CacheMutex);
-    MqttPublish(&m_iPublishMsgId, "report", szMsg, 0);
-    gettimeofday(&now, NULL);
-    abstime.tv_sec = now.tv_sec + 5;
-    abstime.tv_nsec = 0;
-    if (pthread_cond_timedwait(&CacheDataHeader.sendok, &m_CacheMutex, &abstime) == 0) {
-      uint16_t data;
-      data = 0xFFFF;
-      AT24CXX_Write(CACHE_DATA_ADDR + CacheDataHeader.Read * CACHE_DATA_SIZE, (void *)&data, 2);
-      CacheDataHeader.Read++;
-      if (CacheDataHeader.Read >= CACHE_DATA_COUNT)
-        CacheDataHeader.Read = 0;
+    if (MqttPublish(&m_iPublishMsgId, "report", szMsg, 0)) {
+      gettimeofday(&now, NULL);
+      abstime.tv_sec = now.tv_sec + 5;
+      abstime.tv_nsec = 0;
+      if (pthread_cond_timedwait(&CacheDataHeader.sendok, &m_CacheMutex, &abstime) == 0) {
+        uint16_t data;
+        data = 0xFFFF;
+        AT24CXX_Write(CACHE_DATA_ADDR + CacheDataHeader.Read * CACHE_DATA_SIZE, (void *)&data, 2);
+        CacheDataHeader.Read++;
+        if (CacheDataHeader.Read >= CACHE_DATA_COUNT)
+          CacheDataHeader.Read = 0;
+      }
     }
     /*临界区释放锁*/
     Unlock(&m_CacheMutex);
+    Sleep(1);
   }
 }
 void PublishAck(int msgId, int ok)
@@ -251,30 +255,26 @@ void LoadParameter(void)
     memset((void *)&m_Parameter, 0, sizeof(PARAMETER));
     strcpy(m_Parameter.MqttServer, "1.15.67.50");
     m_Parameter.MqttPort = 1883;
-    strcpy(m_Parameter.MqttUser, "mt7688");
-    strcpy(m_Parameter.MqttPwd, "12345678");
     strcpy(m_Parameter.longitude, "30.326558");
     strcpy(m_Parameter.latitude, "120.088792");
-    execmd("ifconfig | grep br-lan | awk '{ print $5 }'  | sed 's/://g'", m_Parameter.machid, sizeof(m_Parameter.machid));
-    m_Parameter.machid[12] = 0;
-    p = m_Parameter.machid;
+    execmd("ifconfig | grep br-lan | awk '{ print $5 }'  | sed 's/://g'", m_Parameter.MACID, sizeof(m_Parameter.MACID));
+    m_Parameter.MACID[12] = 0;
+    p = m_Parameter.MACID;
     while (*p) {
       if (*p >= 'A' && *p <= 'F')
         *p += 32;
       p++;
     }
-    strcpy(m_Parameter.MqttUser, m_Parameter.machid);
     printf("Parameter Init\r\n");
   }
   ParameterCheck();
-  printf("MachType = %d ReportInterval = %d RunDelay = %d Version = %d\r\n", m_Parameter.MachType, m_Parameter.ReportInterval, m_Parameter.RunDelay, 1);
+  printf("MAC:%s CCID:%s\n", m_Parameter.MACID, m_Parameter.CCID);
+  printf("MachType = %d ReportInterval = %d RunDelay = %d Version = %d\r\n", m_Parameter.MachType, m_Parameter.ReportInterval, m_Parameter.RunDelay, SVNVERSION);
 }
-#ifdef MQTT_SUPPORT
 void SetMqttPwd(char *pwd)
 {
   strcpy(m_Parameter.MqttPwd, pwd);
 }
-#endif
 static int shellMachTypeGet()
 {
   return m_Parameter.MachType;

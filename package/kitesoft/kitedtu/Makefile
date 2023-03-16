@@ -17,7 +17,7 @@ include $(INCLUDE_DIR)/package.mk
 define Package/$(PKG_NAME)
 	SECTION:=utils
 	CATEGORY:=Utilities
-	DEPENDS:= +libc +libmosquitto
+	DEPENDS:= +libc +libmosquitto +libcurl
 	SUBMENU:=kitesoft
 	TITLE:=$(PKG_NAME) Application
 endef
@@ -37,6 +37,7 @@ endef
 # much easier to do it this way.
 define Build/Prepare
 	mkdir -p $(PKG_BUILD_DIR)
+	sh ./mkver.sh
 	$(CP) ./src/* $(PKG_BUILD_DIR)/
 endef
 

@@ -29,7 +29,7 @@ int at_send_printf(char *resp, int size, const char *fmt, ...)
     return 0;
   va_list args;
   Lock(&m_AtportMutex);
-  tcflush(serial_fd, TCIFLUSH);
+  tcflush(serial_fd, TCIOFLUSH);
   va_start(args, fmt);
   vsnprintf(line, sizeof(line), fmt, args);
   write(serial_fd, line, strlen(line));
@@ -62,9 +62,9 @@ void GprsGetLocation(void)
   char buf[256];
   if (ccid_ok == 0 && at_send_printf(buf, sizeof(buf), "AT*I\r\n") > 0) {
     char *p = strstr(buf, "CCID");
-    if (p && sscanf(p, "%*[^:]: %s", m_Parameter.MqttUser) == 1) {
+    if (p && sscanf(p, "%*[^:]: %s", m_Parameter.CCID) == 1) {
       int MqttReconnect();
-      printf("CCID: %s\r\n", m_Parameter.MqttUser);
+      printf("CCID: %s\r\n", m_Parameter.CCID);
       MqttReconnect();
       ccid_ok = 1;
     }
@@ -77,14 +77,18 @@ void GprsGetLocation(void)
     at_send_printf(buf, sizeof(buf), "AT+SAPBR=2,1\r\n");
     if (at_send_printf(buf, sizeof(buf), "AT+CIPGSMLOC=1,1\r\n") > 0) {
       int n;
-      if (sscanf(buf, "%*[^:]: %d,%[^,],%[^,],", &n, m_Parameter.longitude, m_Parameter.latitude) == 3) {
+      char *p = strstr(buf, "CIPGSMLOC");
+      if (p && sscanf(p, "%*[^:]: %d,%[^,],%[^,],", &n, m_Parameter.longitude, m_Parameter.latitude) == 3) {
         printf("POS:%s,%s\r\n", m_Parameter.longitude, m_Parameter.latitude);
         location_ok = 1;
       }
     }
   }
-  if (at_send_printf(buf, sizeof(buf), "AT+CSQ\r\n") > 0)
-    sscanf(buf, "%*[^:]:%d,", &csq);
+  if (at_send_printf(buf, sizeof(buf), "AT+CSQ\r\n") > 0) {
+    char *p = strstr(buf, "CSQ");
+    if (p)
+      sscanf(p, "%*[^:]:%d,", &csq);
+  }
 }
 int GprsGetCsq()
 {

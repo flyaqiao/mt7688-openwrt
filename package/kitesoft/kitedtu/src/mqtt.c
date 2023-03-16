@@ -3,30 +3,36 @@
 #include <stdint.h>
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
 #include <time.h>
 #include <sys/time.h>
 #include "mosquitto.h"
 #include "cJSON.h"
 #include "SysCall.h"
 #include "typedef.h"
+#include "version.h"
 
 #define KEEP_ALIVE 60
 
+int HttpPost(char *send_data, char *url);
 void PublishAck(int msgId, int ok);
 // 定义运行标志决定是否需要结束
 static int m_bConnected = 0;
 static struct mosquitto *m_mosq;
+static char szMqttUser[32];
 
 int MqttPublish(int *msgId, char *topic, char *payload, int qos)
 {
   char szTopic[128];
-  sprintf(szTopic, "d/%s/%s", m_Parameter.machid, topic);
+  if (m_bConnected != 1)
+    return 0;
+  sprintf(szTopic, "d/%s/%s", szMqttUser, topic);
   return mosquitto_publish(m_mosq, msgId, szTopic, strlen(payload), payload, 0, 0) == MOSQ_ERR_SUCCESS;
 }
 int MqttSubscribe(char *topic, int qos)
 {
   char szTopic[128];
-  sprintf(szTopic, "d/%s/%s", m_Parameter.machid, topic);
+  sprintf(szTopic, "d/%s/%s", szMqttUser, topic);
   if (mosquitto_subscribe(m_mosq, NULL, szTopic, qos)) {
     printf("Subscribe %s error!\n", topic);
     return 0;
@@ -56,17 +62,15 @@ static void my_connect_callback(struct mosquitto *mosq, void *obj, int rc)
     if (MqttSubscribe("state/get", 0) == 0)
       m_bConnected = 0;
     time(&tt);
-    sprintf(szData, "{\"date\":%ld,\"lat\":\"%s\",\"long\":\"%s\",\"ver\":%d,\"MachType\":%d,\"Times\":%d}",
-            tt, m_Parameter.latitude, m_Parameter.longitude, 1, m_Parameter.MachType, times++);
+    sprintf(szData, "{\"date\":%ld,\"lat\":\"%s\",\"long\":\"%s\",\"ver\":%d,\"MachType\":%d,\"Times\":%d,\"hashver\":\"%s\"}",
+            tt, m_Parameter.latitude, m_Parameter.longitude, SVNVERSION, m_Parameter.MachType, times++, GITVERSION);
     MqttPublish(NULL, "reg", szData, 0);
-    //report_now();
   }
 }
 
 static void my_disconnect_callback(struct mosquitto *mosq, void *obj, int rc)
 {
   m_bConnected = 0;
-  //PublishAck(0, 0);
 }
 
 static void my_subscribe_callback(struct mosquitto *mosq, void *obj, int mid, int qos_count, const int *granted_qos)
@@ -80,8 +84,8 @@ static void my_publish_callback(struct mosquitto *mosq, void *obj, int msgId)
 }
 static void Config2Json(char *msg)
 {
-  sprintf(msg, "{\"MachType\":%d,\"ReportInterval\":%d,\"CountReport\":%d,\"RunDelay\":%d,\"LogReport\":%d}",
-          m_Parameter.MachType, m_Parameter.ReportInterval, m_Parameter.CountReport, m_Parameter.RunDelay, m_Parameter.LogReport);
+  sprintf(msg, "{\"MachType\":%d,\"ReportInterval\":%d,\"CountReport\":%d,\"RunDelay\":%d}",
+          m_Parameter.MachType, m_Parameter.ReportInterval, m_Parameter.CountReport, m_Parameter.RunDelay);
 }
 static int Json2Config(char *msg)
 {
@@ -113,13 +117,6 @@ static int Json2Config(char *msg)
         m_Parameter.CountReport = atoi(obj->valuestring);
       else if (obj->type == cJSON_Number)
         m_Parameter.CountReport = obj->valueint;
-    }
-    if (cJSON_GetObjectItem(cjson, "LogReport") != NULL) {
-      cJSON *obj = cJSON_GetObjectItem(cjson, "LogReport");
-      if (obj->type == cJSON_String)
-        m_Parameter.LogReport = atoi(obj->valuestring);
-      else if (obj->type == cJSON_Number)
-        m_Parameter.LogReport = obj->valueint;
     }
     if (cJSON_GetObjectItem(cjson, "RunDelay") != NULL) {
       cJSON *obj = cJSON_GetObjectItem(cjson, "RunDelay");
@@ -153,14 +150,30 @@ void report_state(void)
   State2Json(szPayload);
   MqttPublish(NULL, "state/report", szPayload, 0);
 }
+int asyncupgarde(char *url)
+{
+#ifndef WIN31
+  char cmd[128];
+  sprintf(cmd, "wget -O- %s | sh &", url);
+  system(cmd);
+#endif
+}
 static void my_message_callback(struct mosquitto *mosq, void *obj, const struct mosquitto_message *msg)
 {
   char szMachId[128];
   char szTopic[128];
   char szPayload[256];
-  if (sscanf(msg->topic, "d/%[^/]/%s", szMachId, szTopic) == 2 && strcmp(szMachId, m_Parameter.machid) == 0) {
+  if (sscanf(msg->topic, "d/%[^/]/%s", szMachId, szTopic) == 2 && strcmp(szMachId, szMqttUser) == 0) {
     if (strcmp(szTopic, "upg") == 0) {
-      //ftp_upgrade(mqtt_data.Msg);
+      char url[128] = { 0 };
+      cJSON *cjson = cJSON_Parse(msg->payload);//将JSON字符串转换成JSON结构体
+      if (cjson != NULL) {  //判断转换是否成功
+        if (cJSON_GetObjectItem(cjson, "url") != NULL)
+          strncpy(url, cJSON_GetObjectItem(cjson, "url")->valuestring, sizeof(url) - 1);
+        cJSON_Delete(cjson);//清除结构体
+        if (strlen(url))
+          asyncupgarde(url);
+      }
     } else if (strcmp(szTopic, "cfg/set") == 0) {
       if (Json2Config(msg->payload))
         MqttReconnect();
@@ -187,8 +200,7 @@ void MqttThread(void *arg)
   }
   // 创建一个订阅端实例
   // 参数：id（不需要则为NULL）、clean_start、用户数据
-  printf("machid = %s\n", m_Parameter.machid);
-  m_mosq = mosquitto_new(m_Parameter.machid, true, NULL);
+  m_mosq = mosquitto_new(m_Parameter.MACID, true, NULL);
   if (m_mosq == NULL) {
     printf("New sub_test error!\n");
     mosquitto_lib_cleanup();
@@ -204,19 +216,28 @@ void MqttThread(void *arg)
   // 开始通信：循环执行
   while (1) {
     if (m_bConnected == 0) {
+      if (strlen(m_Parameter.CCID) > 4)
+        strcpy(szMqttUser, m_Parameter.CCID + 4);
+      else
+        strcpy(szMqttUser, m_Parameter.MACID);
+      if (strlen(m_Parameter.MqttPwd) == 0) {
+        char szPostData[128];
+        sprintf(szPostData, "clientid=%s&username=%s", m_Parameter.MACID, szMqttUser);
+        HttpPost(szPostData, "http://mqtt.fxy360.com:15068/mqtt/query");
+      }
       // 连接至服务器
       // 参数：句柄、ip（host）、端口、心跳
-      mosquitto_username_pw_set(m_mosq, m_Parameter.MqttUser, m_Parameter.MqttPwd);
+      if (strlen(m_Parameter.MqttPwd))
+        mosquitto_username_pw_set(m_mosq, szMqttUser, m_Parameter.MqttPwd);
       ret = mosquitto_connect(m_mosq, m_Parameter.MqttServer, m_Parameter.MqttPort, KEEP_ALIVE);
       if (ret) {
-        printf("Connect server error[%d]!(%s,%s,%s)\n", ret, m_Parameter.machid, m_Parameter.MqttUser, m_Parameter.MqttPwd);
+        printf("Connect server error[%d]!(%s,%s,%s)\n", ret, m_Parameter.MACID, m_Parameter.CCID, m_Parameter.MqttPwd);
         Sleep(60000);
       }
       Sleep(1000);
     } else if (m_bConnected > 1) {
       mosquitto_disconnect(m_mosq);
       m_bConnected = 0;
-      //PublishAck(0, 0);
     }
     mosquitto_loop(m_mosq, -1, 1);
   }

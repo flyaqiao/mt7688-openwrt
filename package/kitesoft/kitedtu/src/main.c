@@ -343,12 +343,14 @@ static void InputThread(void *arg)
 void MqttThread(void *arg);
 void CommThread(void *arg);
 void InitCache();
+void HttpInit();
 void report_state(void);
 int main(int argc, char **argv)
 {
   m_pInputQueue = QueueCreate(sizeof(struct msg_data), 32);
   sem_init(&state_sem, 0, 0);
   InitCache();
+  HttpInit();
   GprsInit();
   GprsGetLocation();
   //StartBackgroudTask(AtPortThread, (void *)0, 63);
