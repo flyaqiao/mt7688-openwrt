@@ -5,6 +5,7 @@ if [[  -f /etc/asound.state ]] && [[ -x /usr/sbin/alsactl ]]; then
 /usr/sbin/alsactl -f /etc/asound.state restore &
 fi
 hwclock -s -u
+kitedtu &
 
 exit 0
 
