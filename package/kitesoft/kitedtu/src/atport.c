@@ -14,6 +14,8 @@
 #include "gpio.h"
 #include "SysCall.h"
 #include "typedef.h"
+#define LOG_TAG "4G"
+#include <elog.h>
 
 static MUTEX_T m_AtportMutex;
 #define DEFAULT_TIMEOUT 3000
@@ -33,13 +35,13 @@ static int OpenCom()
     sprintf(szComm, "/dev/ttyUSB2");
     serial_fd = open(szComm, O_RDWR | O_NOCTTY | O_NDELAY);
     if (serial_fd == -1) {
-      printf("open fail\n");
+      log_e("open fail");
       return -1;
     }
   }
   //2.备份现有的串口配置
   if (-1 == tcgetattr(serial_fd, &old_cfg)) {
-    printf("tcgetattr\n");
+    log_e("tcgetattr");
     return -2;
   }
   //3.原始模式
@@ -67,7 +69,7 @@ static int OpenCom()
   tcflush(serial_fd, TCIFLUSH);
   //8.使能配置生效
   if (-1 == tcsetattr(serial_fd, TCSANOW, &new_cfg)) {
-    printf("tcgetattr\n");
+    log_e("tcgetattr");
     return -3;
   }
   return serial_fd;
@@ -124,7 +126,7 @@ void GprsGetLocation(void)
     char *p = strstr(buf, "CCID");
     if (p && sscanf(p, "%*[^:]: %s", m_Parameter.CCID) == 1) {
       int MqttReconnect();
-      printf("CCID: %s\r\n", m_Parameter.CCID);
+      log_i("CCID: %s", m_Parameter.CCID);
       MqttReconnect();
       ccid_ok = 1;
     }
@@ -139,7 +141,7 @@ void GprsGetLocation(void)
       int n;
       char *p = strstr(buf, "CIPGSMLOC");
       if (p && sscanf(p, "%*[^:]: %d,%[^,],%[^,],", &n, m_Parameter.longitude, m_Parameter.latitude) == 3) {
-        printf("POS:%s,%s\r\n", m_Parameter.longitude, m_Parameter.latitude);
+        log_i("POS:%s,%s", m_Parameter.longitude, m_Parameter.latitude);
         location_ok = 1;
       }
     }

@@ -9,6 +9,8 @@
 #include "cJSON.h"
 #include "SysCall.h"
 #include "typedef.h"
+#define LOG_TAG "HTTP"
+#include <elog.h>
 
 void HttpInit()
 {
@@ -21,7 +23,7 @@ int curl_recv_post_data(void *buffer, size_t size, size_t nmemb, char *useless)
 {
   cJSON *cjson = cJSON_Parse(buffer);//将JSON字符串转换成JSON结构体
   if (cjson == NULL)          //判断转换是否成功
-    printf("cjson error...\r\n");
+    log_e("cjson error...");
   else {
     int code = cJSON_GetObjectItem(cjson, "code")->valueint;
     if (code == 200) {
@@ -30,7 +32,6 @@ int curl_recv_post_data(void *buffer, size_t size, size_t nmemb, char *useless)
         char *pobj = cJSON_GetObjectItem(psub, "password")->valuestring;
         if (pobj) {
           void SetMqttPwd(char *pwd);
-          printf("%d %s\r\n", code, pobj);
           SetMqttPwd(pobj);
         }
       }
@@ -64,22 +65,22 @@ int HttpPost(char *send_data, char *url)
   curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
   res = curl_easy_perform(curl);
   if (res != CURLE_OK) {
-    printf("curl error: %d => ", res);
+    log_e("curl error: %d => ", res);
     switch (res) {
     case CURLE_UNSUPPORTED_PROTOCOL:
-      printf("Does not support agreement\n");
+      log_e("Does not support agreement");
       break;
     case CURLE_COULDNT_CONNECT:
-      printf("not link remote server\n");
+      log_e("not link remote server");
       break;
     case CURLE_HTTP_RETURNED_ERROR:
-      printf("http return failed\n");
+      log_e("http return failed");
       break;
     case CURLE_READ_ERROR:
-      printf("read local file failed\n");
+      log_e("read local file failed");
       break;
     default:
-      printf("curl other error\n");
+      log_e("curl other error");
       break;
     }
     iRet = -1;

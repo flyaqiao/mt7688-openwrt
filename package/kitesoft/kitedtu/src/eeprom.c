@@ -11,6 +11,8 @@
 #include "SysCall.h"
 #include "typedef.h"
 #include "version.h"
+#define LOG_TAG "EEPROM"
+#include <elog.h>
 
 PARAMETER m_Parameter;
 PARAMETER m_ParameterBak;
@@ -81,7 +83,7 @@ static void ScanCacheData(void *arg)
   //pthread_cond_signal(&CacheDataHeader.notempty);
   /*临界区释放锁*/
   Unlock(&m_CacheMutex);
-  printf("Cache Pos: %d %d\r\n", CacheDataHeader.Read, CacheDataHeader.Write);
+  log_i("Cache Pos: %d %d", CacheDataHeader.Read, CacheDataHeader.Write);
 }
 int MqttPublish(int *msgId, char *topic, char *payload, int qos);
 static void SendCacheData(void *arg)
@@ -179,7 +181,7 @@ void InitCache()
   OpenLock(&m_CacheMutex);
   m_iCacheFd = open("/sys/bus/i2c/devices/0-0050/eeprom", O_RDWR);//打开文件
   if (m_iCacheFd < 0)
-    printf("####i2c test device open failed####/n");
+    log_e("####i2c test device open failed####");
   pthread_cond_init(&CacheDataHeader.notempty, NULL);
   pthread_cond_init(&CacheDataHeader.sendok, NULL);
   LoadParameter();
@@ -200,8 +202,8 @@ int send_run_data(uint16_t run_time, uint16_t alert_time, uint16_t ready_time, t
   data.EndTime = end;
   data.RE = RE;
   struct tm *tp = localtime(&begin);
-  printf("%s(G:%d,R:%d,Y:%d,[%d/%02d/%02d %02d:%02d:%02d],%d,%d,%d)\r\n", __func__, run_time, alert_time, ready_time,
-         tp->tm_year + 1900, tp->tm_mon + 1, tp->tm_mday, tp->tm_hour, tp->tm_min, tp->tm_sec, state, RE, count);
+  log_d("%s(G:%d,R:%d,Y:%d,[%d/%02d/%02d %02d:%02d:%02d],%d,%d,%d)", __func__, run_time, alert_time, ready_time,
+        tp->tm_year + 1900, tp->tm_mon + 1, tp->tm_mday, tp->tm_hour, tp->tm_min, tp->tm_sec, state, RE, count);
   /*临界区上锁*/
   Lock(&m_CacheMutex);
   AT24CXX_Write(CACHE_DATA_ADDR + CacheDataHeader.Write * CACHE_DATA_SIZE, (void *)&data, sizeof(data));
@@ -211,7 +213,7 @@ int send_run_data(uint16_t run_time, uint16_t alert_time, uint16_t ready_time, t
   pthread_cond_signal(&CacheDataHeader.notempty);
   /*临界区释放锁*/
   Unlock(&m_CacheMutex);
-  printf("data size = %d cur pos = [%d, %d]\r\n", sizeof(data), CacheDataHeader.Read, CacheDataHeader.Write);
+  log_i("data size = %d cur pos = [%d, %d]", sizeof(data), CacheDataHeader.Read, CacheDataHeader.Write);
   return 0;
 }
 static unsigned char keys[] = "J3#o&Kn4";
@@ -279,11 +281,11 @@ void LoadParameter(void)
         *p += 32;
       p++;
     }
-    printf("Parameter Init\r\n");
+    log_w("Parameter Init");
   }
   ParameterCheck();
-  printf("MAC:%s CCID:%s\n", m_Parameter.MACID, m_Parameter.CCID);
-  printf("MachType = %d ReportInterval = %d RunDelay = %d Version = %d\r\n", m_Parameter.MachType, m_Parameter.ReportInterval, m_Parameter.RunDelay, SVNVERSION);
+  log_i("MAC:%s CCID:%s", m_Parameter.MACID, m_Parameter.CCID);
+  log_i("MachType = %d ReportInterval = %d RunDelay = %d Version = %d", m_Parameter.MachType, m_Parameter.ReportInterval, m_Parameter.RunDelay, SVNVERSION);
 }
 void SetMqttPwd(char *pwd)
 {

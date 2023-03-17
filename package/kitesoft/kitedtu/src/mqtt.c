@@ -11,6 +11,8 @@
 #include "SysCall.h"
 #include "typedef.h"
 #include "version.h"
+#define LOG_TAG "MQTT"
+#include <elog.h>
 
 #define KEEP_ALIVE 60
 
@@ -34,7 +36,7 @@ int MqttSubscribe(char *topic, int qos)
   char szTopic[128];
   sprintf(szTopic, "d/%s/%s", szMqttUser, topic);
   if (mosquitto_subscribe(m_mosq, NULL, szTopic, qos)) {
-    printf("Subscribe %s error!\n", topic);
+    log_e("Subscribe %s error!", topic);
     return 0;
   }
   return 1;
@@ -47,7 +49,7 @@ static void my_connect_callback(struct mosquitto *mosq, void *obj, int rc)
 {
   if (rc) {
     // 连接错误，退出程序
-    printf("on_connect error![ %d ]\n", rc);
+    log_e("on_connect error![ %d ]", rc);
   } else {
     static int times = 0;
     char szData[256];
@@ -75,7 +77,7 @@ static void my_disconnect_callback(struct mosquitto *mosq, void *obj, int rc)
 
 static void my_subscribe_callback(struct mosquitto *mosq, void *obj, int mid, int qos_count, const int *granted_qos)
 {
-  printf("Subscribe success\r\n");
+  log_i("Subscribe successn");
 }
 
 static void my_publish_callback(struct mosquitto *mosq, void *obj, int msgId)
@@ -140,7 +142,7 @@ static int Json2Config(char *msg)
     if (m_Parameter.MqttPort != para.MqttPort || strcmp(m_Parameter.MqttServer, para.MqttServer) != 0)
       return 1;
   } else
-    printf("cfg/set error...(%s)\r\n", msg);
+    log_e("cfg/set error...(%s)", msg);
   return 0;
 }
 void report_state(void)
@@ -195,14 +197,14 @@ void MqttThread(void *arg)
   // 初始化mosquitto库
   ret = mosquitto_lib_init();
   if (ret) {
-    printf("Init lib error!\n");
+    log_e("Init lib error!");
     return;
   }
   // 创建一个订阅端实例
   // 参数：id（不需要则为NULL）、clean_start、用户数据
   m_mosq = mosquitto_new(m_Parameter.MACID, true, NULL);
   if (m_mosq == NULL) {
-    printf("New sub_test error!\n");
+    log_e("New sub_test error!");
     mosquitto_lib_cleanup();
     return;
   }
@@ -229,9 +231,11 @@ void MqttThread(void *arg)
       // 参数：句柄、ip（host）、端口、心跳
       if (strlen(m_Parameter.MqttPwd))
         mosquitto_username_pw_set(m_mosq, szMqttUser, m_Parameter.MqttPwd);
+      else
+        mosquitto_username_pw_set(m_mosq, szMqttUser, szMqttUser);
       ret = mosquitto_connect(m_mosq, m_Parameter.MqttServer, m_Parameter.MqttPort, KEEP_ALIVE);
       if (ret) {
-        printf("Connect server error[%d]!(%s,%s,%s)\n", ret, m_Parameter.MACID, m_Parameter.CCID, m_Parameter.MqttPwd);
+        log_e("Connect server error[%d]!(%s,%s,%s)", ret, m_Parameter.MACID, m_Parameter.CCID, m_Parameter.MqttPwd);
         Sleep(60000);
       }
       Sleep(1000);

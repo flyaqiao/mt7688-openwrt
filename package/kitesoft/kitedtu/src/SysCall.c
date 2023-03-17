@@ -17,6 +17,8 @@
 #include <sched.h>
 #include <time.h>
 #endif
+#define LOG_TAG "SYSCALL"
+#include <elog.h>
 
 void OpenLock(MUTEX_T *p)
 {
@@ -97,14 +99,14 @@ int StartBackgroudTask(void *fn, void *param, int priority)
   //pthread_attr_setdetachstate(&a, PTHREAD_CREATE_DETACHED);      //设置线程属性
   ret = pthread_create(&tid, &a, fn, param);
   if (ret != 0) {
-    printf("Thread create fail 1[%d]\r\n", priority);
+    log_e("Thread create fail 1[%d]", priority);
     return ret;
   }
   /* 销毁一个目标结构，并且使它在重新初始化之前不能重新使用 */
   //pthread_attr_destroy (&a);
   ret = pthread_detach(tid);
   if (ret != 0) {
-    printf("Thread create fail 2[%d]\r\n", priority);
+    log_e("Thread create fail 2[%d]", priority);
     return ret;
   }
   return 0;
@@ -216,7 +218,7 @@ int execmd(char *input, char *output, int maxlen)
   pipe = _popen(input, "r");
   if (NULL == pipe) {
 #ifndef WIN32
-    printf("popen fail %d [ %s ]\r\n", errno, input);
+    log_e("popen fail %d [ %s ]", errno, input);
 #endif
     return -2;
   }

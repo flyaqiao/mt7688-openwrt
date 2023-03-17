@@ -14,6 +14,8 @@
 #include "gpio.h"
 #include "SysCall.h"
 #include "typedef.h"
+#define LOG_TAG "GPIO"
+#include <elog.h>
 
 static MACH_STATE m_RunData;
 struct GpioState {
@@ -76,19 +78,19 @@ static void GpioThreadIrq(void *arg)
   }
   while (1) {
     if (poll(fds, COUNTOF(gpio_defs), -1) < 0) {
-      perror("poll failed!\n");
+      log_e("poll failed!");
       continue;
     }
     for (i = 0; i < COUNTOF(gpio_defs); i++) {
       if (fds[i].revents & POLLPRI) {
         //能进这里就代表触发事件发生了,我这里是置了一个标志
         if (lseek(fds[i].fd, 0, SEEK_SET) == -1) {
-          perror("lseek value failed!\n");
+          log_e("lseek value failed!");
           continue;
         }
         //一定要读取,不然会一直检测到紧急事件
         if ((len = read(fds[i].fd, buffer, sizeof(buffer))) == -1)  {
-          perror("read value failed!\n");
+          log_e("read value failed!");
           continue;
         }
         buffer[len] = 0;
@@ -298,7 +300,7 @@ static void InputThread(void *arg)
           m_RunData.Count++;
         break;
       }
-      printf("INPUT: C:%d,G:%d,Y:%d,R:%d,COUNT:%d,CLOSE:%d\r\n", m_GpioState.Com, m_GpioState.Green, m_GpioState.Yellow, m_GpioState.Red, m_GpioState.Count, m_GpioState.Close);
+      log_w("INPUT: C:%d,G:%d,Y:%d,R:%d,COUNT:%d,CLOSE:%d", m_GpioState.Com, m_GpioState.Green, m_GpioState.Yellow, m_GpioState.Red, m_GpioState.Count, m_GpioState.Close);
     } else
       gettimeofday(&rb.timestamap, NULL);
     RUN_STATE state = MS_NONE;
@@ -347,6 +349,22 @@ void HttpInit();
 void report_state(void);
 int main(int argc, char **argv)
 {
+  /* close printf buffer */
+  setbuf(stdout, NULL);
+  /* initialize EasyLogger */
+  elog_init();
+  /* set EasyLogger log format */
+  elog_set_fmt(ELOG_LVL_ASSERT, ELOG_FMT_ALL);
+  elog_set_fmt(ELOG_LVL_ERROR, ELOG_FMT_LVL | ELOG_FMT_TAG | ELOG_FMT_TIME);
+  elog_set_fmt(ELOG_LVL_WARN, ELOG_FMT_LVL | ELOG_FMT_TAG | ELOG_FMT_TIME);
+  elog_set_fmt(ELOG_LVL_INFO, ELOG_FMT_LVL | ELOG_FMT_TAG | ELOG_FMT_TIME);
+  elog_set_fmt(ELOG_LVL_DEBUG, ELOG_FMT_LVL | ELOG_FMT_TAG | ELOG_FMT_TIME);
+  elog_set_fmt(ELOG_LVL_VERBOSE, ELOG_FMT_LVL | ELOG_FMT_TAG | ELOG_FMT_TIME);
+#ifdef ELOG_COLOR_ENABLE
+  elog_set_text_color_enabled(true);
+#endif
+  /* start EasyLogger */
+  elog_start();
   m_pInputQueue = QueueCreate(sizeof(struct msg_data), 32);
   sem_init(&state_sem, 0, 0);
   InitCache();
