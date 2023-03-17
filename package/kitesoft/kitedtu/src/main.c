@@ -164,20 +164,23 @@ static RUN_STATE MachType0()
 {
   RUN_STATE state;
   if (m_GpioState.Red != m_GpioState.Com) {
-    m_iRunDelay = GetTickCount();
+    m_iRunDelay = 0;
     state = MS_ALERT;
   } else if (m_GpioState.Green != m_GpioState.Com) {
-    m_iRunDelay = GetTickCount();
+    m_iRunDelay = 0;
     state = MS_RUNNING;
   } else if (m_GpioState.Yellow != m_GpioState.Com) {
-    m_iRunDelay = GetTickCount();
+    m_iRunDelay = 0;
     state = MS_READY;
   } else {
     state = (RUN_STATE)m_RunData.State;
-    if (state != MS_RUNNING || (m_iRunDelay && (m_iRunDelay + m_Parameter.RunDelay) < GetTickCount())) {
+    if (state == MS_RUNNING) {
+      if (m_iRunDelay == 0)
+        m_iRunDelay = GetTickCount() + m_Parameter.RunDelay;
+      else if (m_iRunDelay < GetTickCount())
+        state = MS_READY;
+    } else
       state = MS_READY;
-      m_iRunDelay = 0;
-    }
   }
   return state;
 }
@@ -185,28 +188,32 @@ static RUN_STATE MachType1() // 注塑
 {
   RUN_STATE state;
   if (m_GpioState.Red != m_GpioState.Com) {
-    m_iRunDelay = GetTickCount();
+    m_iRunDelay = 0;
     m_RunData.RE = 0;
     state = MS_ALERT;
   } else if (m_GpioState.Green != m_GpioState.Com) {
     state = MS_RUNNING;
-    m_iRunDelay = GetTickCount();
+    m_iRunDelay = 0;
     m_RunData.RE = 1;
     if (m_GpioState.Close == 0x00) // 合模
       state = MS_RUNNING;
     else if (m_GpioState.Count == 0x00)   // 开模
       state = MS_READY;
   } else if (m_GpioState.Yellow != m_GpioState.Com) {
-    m_iRunDelay = GetTickCount();
+    m_iRunDelay = 0;
     m_RunData.RE = 0;
     state = MS_READY;
   } else {
     state = (RUN_STATE)m_RunData.State;
-    if (m_RunData.RE != 0 || (m_iRunDelay && (m_iRunDelay + m_Parameter.RunDelay) < GetTickCount())) {
+    if (m_RunData.RE != 0) {
+      if (m_iRunDelay == 0)
+        m_iRunDelay = GetTickCount() + m_Parameter.RunDelay;
+      else if (m_iRunDelay < GetTickCount()) {
+        state = MS_READY;
+        m_RunData.RE = 0;
+      }
+    } else
       state = MS_READY;
-      m_RunData.RE = 0;
-      m_iRunDelay = 0;
-    }
   }
   return state;
 }
@@ -215,25 +222,29 @@ static RUN_STATE MachType2() // 冲压(注塑无合模)
   RUN_STATE state;
   if (m_GpioState.Red != m_GpioState.Com) {
     m_RunData.RE = 0;
-    m_iRunDelay = GetTickCount();
+    m_iRunDelay = 0;
     state = MS_ALERT;
   } else if (m_GpioState.Green != m_GpioState.Com) {
     state = MS_RUNNING;
-    m_iRunDelay = GetTickCount();
+    m_iRunDelay = 0;
     m_RunData.RE = 1;
     if (m_GpioState.Count == 0x00)   // 产量
       state = MS_READY;
   } else if (m_GpioState.Yellow != m_GpioState.Com) {
     m_RunData.RE = 0;
-    m_iRunDelay = GetTickCount();
+    m_iRunDelay = 0;
     state = MS_READY;
   } else {
     state = (RUN_STATE)m_RunData.State;
-    if (m_RunData.RE != 0 || (m_iRunDelay && (m_iRunDelay + m_Parameter.RunDelay) < GetTickCount())) {
+    if (m_RunData.RE != 0) {
+      if (m_iRunDelay == 0)
+        m_iRunDelay = GetTickCount() + m_Parameter.RunDelay;
+      else if (m_iRunDelay < GetTickCount()) {
+        state = MS_READY;
+        m_RunData.RE = 0;
+      }
+    } else
       state = MS_READY;
-      m_RunData.RE = 0;
-      m_iRunDelay = 0;
-    }
   }
   return state;
 }
@@ -244,17 +255,19 @@ static RUN_STATE MachType3()  // 注塑无信号灯
   if (m_GpioState.Close == 0x00) { // 合模
     state = MS_RUNNING;
     m_RunData.RE = 1;
-    m_iRunDelay = GetTickCount();
+    m_iRunDelay = 0;
   } else if (m_GpioState.Count == 0x00) {  // 开模
     state = MS_READY;
     m_RunData.RE = 1;
-    m_iRunDelay = GetTickCount();
+    m_iRunDelay = 0;
   } else {
-    if (m_RunData.RE != 0 || (m_iRunDelay && (m_iRunDelay + m_Parameter.RunDelay) < GetTickCount())) {
+    if (m_RunData.RE != 0) {
+      if (m_iRunDelay < GetTickCount()) {
+        state = MS_READY;
+        m_RunData.RE = 0;
+      }
+    } else
       state = MS_READY;
-      m_RunData.RE = 0;
-      m_iRunDelay = 0;
-    }
   }
   return state;
 }
