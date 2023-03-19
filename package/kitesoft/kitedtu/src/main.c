@@ -395,7 +395,8 @@ int main(int argc, char **argv)
     abstime.tv_sec = now.tv_sec + 60;
     abstime.tv_nsec = 0;
     GprsGetLocation();
-    sem_timedwait(&state_sem, &abstime);
+    if (sem_timedwait(&state_sem, &abstime) != 0)
+      memset(&m_GpioStateBak, -1, sizeof(m_GpioStateBak));
     if (m_bReportState) {
       if (memcmp(&m_GpioStateBak, &m_GpioState, sizeof(m_GpioStateBak)) != 0) {
         report_state();

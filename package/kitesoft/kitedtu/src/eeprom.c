@@ -125,7 +125,7 @@ static void SendCacheData(void *arg)
         break;
       }
     }
-    sprintf(szMsg, "{\"tss\":%d,\"tse\":%d", data.BeginTime - 28800, iTimeOut);
+    sprintf(szMsg, "{\"tss\":%d,\"tse\":%d", data.BeginTime, iTimeOut);
     if (data.AlertTime) {
       sprintf(szTmp, ",\"r\":%d", data.AlertTime);
       strcat(szMsg, szTmp);
@@ -146,13 +146,14 @@ static void SendCacheData(void *arg)
     strcat(szMsg, szTmp);
     /*临界区上锁*/
     Lock(&m_CacheMutex);
-    if (MqttPublish(&m_iPublishMsgId, "report", szMsg, 0)) {
+    if (MqttPublish(&m_iPublishMsgId, "report", szMsg, 1)) {
       gettimeofday(&now, NULL);
       abstime.tv_sec = now.tv_sec + 5;
       abstime.tv_nsec = 0;
       if (pthread_cond_timedwait(&CacheDataHeader.sendok, &m_CacheMutex, &abstime) == 0) {
         uint16_t data;
         data = 0xFFFF;
+        log_w("delete cache!");
         AT24CXX_Write(CACHE_DATA_ADDR + CacheDataHeader.Read * CACHE_DATA_SIZE, (void *)&data, 2);
         CacheDataHeader.Read++;
         if (CacheDataHeader.Read >= CACHE_DATA_COUNT)
@@ -165,10 +166,11 @@ static void SendCacheData(void *arg)
     Sleep(1);
   }
 }
-void PublishAck(int msgId, int ok)
+void PublishAck(int msgId)
 {
   if (msgId != m_iPublishMsgId)
     return;
+  log_i("Send ok!");
   /*临界区上锁*/
   Lock(&m_CacheMutex);
   pthread_cond_signal(&CacheDataHeader.sendok);
@@ -269,7 +271,7 @@ void LoadParameter(void)
   if (m_Parameter.Magic != 0x85868483 || u32CRC != m_Parameter.Crc) {
     char *p;
     memset((void *)&m_Parameter, 0, sizeof(PARAMETER));
-    strcpy(m_Parameter.MqttServer, "1.15.67.50");
+    strcpy(m_Parameter.MqttServer, "mqtt.fxy360.com");
     m_Parameter.MqttPort = 1883;
     strcpy(m_Parameter.longitude, "30.326558");
     strcpy(m_Parameter.latitude, "120.088792");

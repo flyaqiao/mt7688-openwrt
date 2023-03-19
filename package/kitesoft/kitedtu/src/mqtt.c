@@ -17,7 +17,7 @@
 #define KEEP_ALIVE 60
 
 int HttpPost(char *send_data, char *url);
-void PublishAck(int msgId, int ok);
+void PublishAck(int msgId);
 // 定义运行标志决定是否需要结束
 static int m_bConnected = 0;
 static struct mosquitto *m_mosq;
@@ -66,7 +66,7 @@ static void my_connect_callback(struct mosquitto *mosq, void *obj, int rc)
     time(&tt);
     sprintf(szData, "{\"date\":%ld,\"lat\":\"%s\",\"long\":\"%s\",\"ver\":%d,\"MachType\":%d,\"Times\":%d,\"hashver\":\"%s\"}",
             tt, m_Parameter.latitude, m_Parameter.longitude, SVNVERSION, m_Parameter.MachType, times++, GITVERSION);
-    MqttPublish(NULL, "reg", szData, 0);
+    MqttPublish(NULL, "reg", szData, 1);
   }
 }
 
@@ -82,7 +82,7 @@ static void my_subscribe_callback(struct mosquitto *mosq, void *obj, int mid, in
 
 static void my_publish_callback(struct mosquitto *mosq, void *obj, int msgId)
 {
-  PublishAck(msgId, 1);
+  PublishAck(msgId);
 }
 static void Config2Json(char *msg)
 {
@@ -180,7 +180,7 @@ static void my_message_callback(struct mosquitto *mosq, void *obj, const struct 
       if (Json2Config(msg->payload))
         MqttReconnect();
       Config2Json(szPayload);
-      MqttPublish(NULL, "cfg/report", szPayload, 0);
+      MqttPublish(NULL, "cfg/report", szPayload, 1);
     } else if (strcmp(szTopic, "state/get") == 0) {
       void set_state_report(int on);
       if (strstr(msg->payload, "on") != NULL)
@@ -235,7 +235,7 @@ void MqttThread(void *arg)
         mosquitto_username_pw_set(m_mosq, szMqttUser, szMqttUser);
       ret = mosquitto_connect(m_mosq, m_Parameter.MqttServer, m_Parameter.MqttPort, KEEP_ALIVE);
       if (ret) {
-        log_e("Connect server error[%d]!(%s,%s,%s)", ret, m_Parameter.MACID, m_Parameter.CCID, m_Parameter.MqttPwd);
+        log_e("Connect server error[%d]!(%s,%s,%s)", ret, m_Parameter.MACID, szMqttUser, m_Parameter.MqttPwd);
         Sleep(60000);
       }
       Sleep(1000);
