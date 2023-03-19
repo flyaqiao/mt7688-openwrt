@@ -17,7 +17,6 @@ echo "  opkg remove kitedtu" >> $UPGSH
 echo "  opkg install /tmp/kitedtu.ipk" >> $UPGSH
 echo "  if [ \$? -eq 0 ]; then" >> $UPGSH
 echo "    killall -9 kitedtu" >> $UPGSH
-echo "    kitedtu 2>&1 >> /dev/null &" >> $UPGSH
 echo "  else" >> $UPGSH
 echo "    echo install fail" >> $UPGSH
 echo "  fi" >> $UPGSH
