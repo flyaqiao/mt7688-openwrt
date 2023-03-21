@@ -152,11 +152,11 @@ void report_state(void)
   State2Json(szPayload);
   MqttPublish(NULL, "state/report", szPayload, 0);
 }
-int asyncupgarde(char *url)
+int asyncupgarde(char *url, int ver, char *script)
 {
 #ifndef WIN31
   char cmd[128];
-  sprintf(cmd, "wget -q -O- %s | sh &", url);
+  sprintf(cmd, "wget -q -O- %s%d/%s | sh &", url, ver, script);
   system(cmd);
 #endif
 }
@@ -168,13 +168,25 @@ static void my_message_callback(struct mosquitto *mosq, void *obj, const struct 
   if (sscanf(msg->topic, "d/%[^/]/%s", szMachId, szTopic) == 2 && strcmp(szMachId, szMqttUser) == 0) {
     if (strcmp(szTopic, "upg") == 0) {
       char url[128] = { 0 };
+      char script[128] = { 0 };
+      int ver = 0;
       cJSON *cjson = cJSON_Parse(msg->payload);//将JSON字符串转换成JSON结构体
       if (cjson != NULL) {  //判断转换是否成功
         if (cJSON_GetObjectItem(cjson, "url") != NULL)
           strncpy(url, cJSON_GetObjectItem(cjson, "url")->valuestring, sizeof(url) - 1);
+        if (cJSON_GetObjectItem(cjson, "ver") != NULL) {
+          cJSON *obj = cJSON_GetObjectItem(cjson, "ver");
+          if (obj->type == cJSON_String)
+            ver = atoi(obj->valuestring);
+          else if (obj->type == cJSON_Number)
+            ver = obj->valueint;
+        }
         cJSON_Delete(cjson);//清除结构体
-        if (strlen(url))
-          asyncupgarde(url);
+        if (strlen(url) == 0)
+          strcpy(url, "http://web.kitesoft.cn:8888/kitedtu/");
+        if (strlen(script) == 0)
+          strcpy(script, "kiteupg.sh");
+        asyncupgarde(url, ver, script);
       }
     } else if (strcmp(szTopic, "cfg/set") == 0) {
       if (Json2Config(msg->payload))

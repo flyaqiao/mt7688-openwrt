@@ -26,4 +26,4 @@ echo "else" >> $UPGSH
 echo "  echo MD5 fail" >> $UPGSH
 echo "fi" >> $UPGSH
 
-echo "{\"url\":\"http://web.kitesoft.cn:8888/kitedtu/"$SVNVER"/kiteupg.sh\"}"
+echo "{\"ver\":$SVNVER}"
