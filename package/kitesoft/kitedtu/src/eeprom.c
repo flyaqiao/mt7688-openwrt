@@ -86,11 +86,50 @@ static void ScanCacheData(void *arg)
   log_i("Cache Pos: %d %d", CacheDataHeader.Read, CacheDataHeader.Write);
 }
 int MqttPublish(int *msgId, char *topic, char *payload, int qos);
-static void SendCacheData(void *arg)
+static int SendMqttData(CacheData *data)
 {
+  int iTimeOut;
   char szMsg[256];
   char szTmp[64];
-  int iTimeOut;
+  if (data->Magic != CACHE_DATA_MAGIC)
+    return 0;
+  iTimeOut = data->EndTime - data->BeginTime;
+  if (iTimeOut > (data->AlertTime + data->ReadyTime + data->RunTime)) {
+    switch (data->State) {
+    case 0:
+      data->RunTime += iTimeOut - (data->AlertTime + data->ReadyTime + data->RunTime);
+      break;
+    case 1:
+      data->ReadyTime += iTimeOut - (data->AlertTime + data->ReadyTime + data->RunTime);
+      break;
+    case 10:
+      data->AlertTime += iTimeOut - (data->AlertTime + data->ReadyTime + data->RunTime);
+      break;
+    }
+  }
+  sprintf(szMsg, "{\"tss\":%d,\"tse\":%d", data->BeginTime, iTimeOut);
+  if (data->AlertTime) {
+    sprintf(szTmp, ",\"r\":%d", data->AlertTime);
+    strcat(szMsg, szTmp);
+  }
+  if (data->ReadyTime) {
+    sprintf(szTmp, ",\"y\":%d", data->ReadyTime);
+    strcat(szMsg, szTmp);
+  }
+  if (data->RunTime) {
+    sprintf(szTmp, ",\"g\":%d", data->RunTime);
+    strcat(szMsg, szTmp);
+  }
+  if (data->Count) {
+    sprintf(szTmp, ",\"q\":%d", data->Count);
+    strcat(szMsg, szTmp);
+  }
+  sprintf(szTmp, ",\"s\":\"%02d\",\"k\":\"%02d\"}", data->State, data->RE);
+  strcat(szMsg, szTmp);
+  return MqttPublish(&m_iPublishMsgId, "report", szMsg, 1);
+}
+static void SendCacheData(void *arg)
+{
   struct timeval now;
   struct timespec abstime;
   CacheData data;
@@ -111,42 +150,9 @@ static void SendCacheData(void *arg)
       }
       continue;
     }
-    iTimeOut = data.EndTime - data.BeginTime;
-    if (iTimeOut > (data.AlertTime + data.ReadyTime + data.RunTime)) {
-      switch (data.State) {
-      case 0:
-        data.RunTime += iTimeOut - (data.AlertTime + data.ReadyTime + data.RunTime);
-        break;
-      case 1:
-        data.ReadyTime += iTimeOut - (data.AlertTime + data.ReadyTime + data.RunTime);
-        break;
-      case 10:
-        data.AlertTime += iTimeOut - (data.AlertTime + data.ReadyTime + data.RunTime);
-        break;
-      }
-    }
-    sprintf(szMsg, "{\"tss\":%d,\"tse\":%d", data.BeginTime, iTimeOut);
-    if (data.AlertTime) {
-      sprintf(szTmp, ",\"r\":%d", data.AlertTime);
-      strcat(szMsg, szTmp);
-    }
-    if (data.ReadyTime) {
-      sprintf(szTmp, ",\"y\":%d", data.ReadyTime);
-      strcat(szMsg, szTmp);
-    }
-    if (data.RunTime) {
-      sprintf(szTmp, ",\"g\":%d", data.RunTime);
-      strcat(szMsg, szTmp);
-    }
-    if (data.Count) {
-      sprintf(szTmp, ",\"q\":%d", data.Count);
-      strcat(szMsg, szTmp);
-    }
-    sprintf(szTmp, ",\"s\":\"%02d\",\"k\":\"%02d\"}", data.State, data.RE);
-    strcat(szMsg, szTmp);
     /*临界区上锁*/
     Lock(&m_CacheMutex);
-    if (MqttPublish(&m_iPublishMsgId, "report", szMsg, 1)) {
+    if (SendMqttData(&data)) {
       gettimeofday(&now, NULL);
       abstime.tv_sec = now.tv_sec + 5;
       abstime.tv_nsec = 0;
@@ -170,18 +176,31 @@ void PublishAck(int msgId)
 {
   if (msgId != m_iPublishMsgId)
     return;
-  log_i("Send ok!");
   /*临界区上锁*/
   Lock(&m_CacheMutex);
   pthread_cond_signal(&CacheDataHeader.sendok);
   /*临界区释放锁*/
   Unlock(&m_CacheMutex);
+  log_i("Send ok!");
 }
 void LoadParameter(void);
 void InitCache()
 {
   OpenLock(&m_CacheMutex);
-  m_iCacheFd = open("/sys/bus/i2c/devices/0-0050/eeprom", O_RDWR);//打开文件
+  if (access("/sys/bus/i2c/devices/0-0050/eeprom", 0) == -1) {
+    if (access("/tmp/eeprom", 0) == -1) {
+      int i;
+      char buf[512];
+      memset(buf, 0xFF, sizeof(buf));
+      m_iCacheFd = open("/tmp/eeprom", O_RDWR | O_CREAT);//打开文件
+      for (i = 0; i < 1024; i++)
+        write(m_iCacheFd, buf, sizeof(buf));
+      close(m_iCacheFd);
+      log_w("Create cache file");
+    }
+    m_iCacheFd = open("/tmp/eeprom", O_RDWR);//打开文件
+  } else
+    m_iCacheFd = open("/sys/bus/i2c/devices/0-0050/eeprom", O_RDWR);//打开文件
   if (m_iCacheFd < 0)
     log_e("####i2c test device open failed####");
   pthread_cond_init(&CacheDataHeader.notempty, NULL);

@@ -119,9 +119,17 @@ int at_send_printf(char *resp, int size, const char *fmt, ...)
   Unlock(&m_AtportMutex);
   return ret;
 }
+static int HasLTEModule()
+{
+  if (access("/dev/ttyUSB1", 0) == -1 && access("/dev/ttyUSB2", 0) == -1)
+    return 0;
+  return 1;
+}
 void GprsGetLocation(void)
 {
   char buf[256];
+  if (HasLTEModule() == 0)
+    return;
   if (ccid_ok == 0 && at_send_printf(buf, sizeof(buf), "AT*I\r\n") > 0) {
     char *p = strstr(buf, "CCID");
     if (p && sscanf(p, "%*[^:]: %s", m_Parameter.CCID) == 1) {

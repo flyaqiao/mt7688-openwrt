@@ -49,7 +49,8 @@ static void my_connect_callback(struct mosquitto *mosq, void *obj, int rc)
 {
   if (rc) {
     // 连接错误，退出程序
-    log_e("on_connect error![ %d ]", rc);
+    log_e("on_connect error![%d]!(%s,%s,%s)", rc, m_Parameter.MACID, szMqttUser, m_Parameter.MqttPwd);
+    m_bConnected = 0;
   } else {
     static int times = 0;
     char szData[256];
