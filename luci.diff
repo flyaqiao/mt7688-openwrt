@@ -1,0 +1,120 @@
+diff --git a/applications/luci-app-openvpn/luasrc/model/cbi/openvpn-advanced.lua b/applications/luci-app-openvpn/luasrc/model/cbi/openvpn-advanced.lua
+index 04934c8..6816792 100644
+--- a/applications/luci-app-openvpn/luasrc/model/cbi/openvpn-advanced.lua
++++ b/applications/luci-app-openvpn/luasrc/model/cbi/openvpn-advanced.lua
+@@ -28,11 +28,11 @@ local knownParams = {
+ 			translate("Disable options consistency check") },
+ 	--	{ Value,
+ 	--		"user",
+-	--		"root",
++	--		"admin",
+ 	--		translate("Set UID to user") },
+ 	--	{ Value,
+ 	--		"group",
+-	--		"root",
++	--		"admin",
+ 	--		translate("Set GID to group") },
+ 		{ Value,
+ 			"cd",
+diff --git a/modules/luci-base/luasrc/dispatcher.lua b/modules/luci-base/luasrc/dispatcher.lua
+index bd1b112..1057b56 100644
+--- a/modules/luci-base/luasrc/dispatcher.lua
++++ b/modules/luci-base/luasrc/dispatcher.lua
+@@ -883,7 +883,7 @@ function dispatch(request)
+ 				http.status(403, "Forbidden")
+ 				http.header("X-LuCI-Login-Required", "yes")
+ 
+-				local scope = { duser = "root", fuser = user }
++				local scope = { duser = "admin", fuser = user }
+ 				local ok, res = util.copcall(tpl.render_string, [[<% include("themes/" .. theme .. "/sysauth") %>]], scope)
+ 				if ok then
+ 					return res
+diff --git a/modules/luci-base/root/usr/libexec/rpcd/luci b/modules/luci-base/root/usr/libexec/rpcd/luci
+index 499f749..6b9c853 100755
+--- a/modules/luci-base/root/usr/libexec/rpcd/luci
++++ b/modules/luci-base/root/usr/libexec/rpcd/luci
+@@ -438,7 +438,7 @@ local methods = {
+ 	},
+ 
+ 	setPassword = {
+-		args = { username = "root", password = "password" },
++		args = { username = "admin", password = "password" },
+ 		call = function(args)
+ 			local util = require "luci.util"
+ 			return {
+diff --git a/modules/luci-mod-admin-mini/luasrc/controller/mini/index.lua b/modules/luci-mod-admin-mini/luasrc/controller/mini/index.lua
+index 6228ad7..2b7beca 100644
+--- a/modules/luci-mod-admin-mini/luasrc/controller/mini/index.lua
++++ b/modules/luci-mod-admin-mini/luasrc/controller/mini/index.lua
+@@ -14,7 +14,7 @@ function index()
+ 	entry({"about"}, template("about"))
+ 
+ 	local page   = entry({"mini"}, alias("mini", "index"), _("Essentials"), 10)
+-	page.sysauth = "root"
++	page.sysauth = "admin"
+ 	page.sysauth_authenticator = "htmlauth"
+ 	page.index = true
+ 
+diff --git a/modules/luci-mod-admin-mini/luasrc/model/cbi/mini/passwd.lua b/modules/luci-mod-admin-mini/luasrc/model/cbi/mini/passwd.lua
+index b7b40e2..50225d5 100644
+--- a/modules/luci-mod-admin-mini/luasrc/model/cbi/mini/passwd.lua
++++ b/modules/luci-mod-admin-mini/luasrc/model/cbi/mini/passwd.lua
+@@ -2,7 +2,7 @@
+ -- Copyright 2008 Jo-Philipp Wich <jow@openwrt.org>
+ -- Licensed to the public under the Apache License 2.0.
+ 
+-f = SimpleForm("password", translate("Admin Password"), translate("Change the password of the system administrator (User <code>root</code>)"))
++f = SimpleForm("password", translate("Admin Password"), translate("Change the password of the system administrator (User <code>admin</code>)"))
+ 
+ pw1 = f:field(Value, "pw1", translate("Password"))
+ pw1.password = true
+@@ -18,7 +18,7 @@ end
+ 
+ function f.handle(self, state, data)
+ 	if state == FORM_VALID then
+-		local stat = luci.sys.user.setpasswd("root", data.pw1) == 0
++		local stat = luci.sys.user.setpasswd("admin", data.pw1) == 0
+ 
+ 		if stat then
+ 			f.message = translate("Password successfully changed")
+diff --git a/modules/luci-mod-failsafe/luasrc/controller/failsafe/failsafe.lua b/modules/luci-mod-failsafe/luasrc/controller/failsafe/failsafe.lua
+index 60caadb..dfc35a3 100644
+--- a/modules/luci-mod-failsafe/luasrc/controller/failsafe/failsafe.lua
++++ b/modules/luci-mod-failsafe/luasrc/controller/failsafe/failsafe.lua
+@@ -22,8 +22,8 @@ function index()
+ 	page.title    = _("Fail-safe")
+ 	page.target   = alias("failsafe", "flashops")
+ 	page.order    = 5
+-	page.setuser  = "root"
+-	page.setgroup = "root"
++	page.setuser  = "admin"
++	page.setgroup = "admin"
+ 	page.index    = true
+ 
+ 	entry({"failsafe", "flashops"}, call("action_flashops"), _("Flash Firmware"), 70).index = true
+diff --git a/modules/luci-mod-rpc/luasrc/controller/rpc.lua b/modules/luci-mod-rpc/luasrc/controller/rpc.lua
+index 37a9760..516c80d 100644
+--- a/modules/luci-mod-rpc/luasrc/controller/rpc.lua
++++ b/modules/luci-mod-rpc/luasrc/controller/rpc.lua
+@@ -42,7 +42,7 @@ function index()
+ 	local ctrl = require "luci.controller.rpc"
+ 
+ 	local rpc = node("rpc")
+-	rpc.sysauth = "root"
++	rpc.sysauth = "admin"
+ 	rpc.sysauth_authenticator = ctrl.authenticator
+ 	rpc.notemplate = true
+ 
+diff --git a/modules/luci-mod-system/htdocs/luci-static/resources/view/system/password.js b/modules/luci-mod-system/htdocs/luci-static/resources/view/system/password.js
+index eb9d4a6..7626061 100644
+--- a/modules/luci-mod-system/htdocs/luci-static/resources/view/system/password.js
++++ b/modules/luci-mod-system/htdocs/luci-static/resources/view/system/password.js
+@@ -80,7 +80,7 @@ return view.extend({
+ 				return;
+ 			}
+ 
+-			return callSetPassword('root', formData.password.pw1).then(function(success) {
++			return callSetPassword('admin', formData.password.pw1).then(function(success) {
+ 				if (success)
+ 					ui.addNotification(null, E('p', _('The system password has been successfully changed.')), 'info');
+ 				else
