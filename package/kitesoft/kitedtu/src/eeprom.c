@@ -159,7 +159,7 @@ static void SendCacheData(void *arg)
       if (pthread_cond_timedwait(&CacheDataHeader.sendok, &m_CacheMutex, &abstime) == 0) {
         uint16_t data;
         data = 0xFFFF;
-        log_w("delete cache!");
+        //log_w("delete cache![ %d ]", CacheDataHeader.Read);
         AT24CXX_Write(CACHE_DATA_ADDR + CacheDataHeader.Read * CACHE_DATA_SIZE, (void *)&data, 2);
         CacheDataHeader.Read++;
         if (CacheDataHeader.Read >= CACHE_DATA_COUNT)
@@ -181,7 +181,7 @@ void PublishAck(int msgId)
   pthread_cond_signal(&CacheDataHeader.sendok);
   /*临界区释放锁*/
   Unlock(&m_CacheMutex);
-  log_i("Send ok!");
+  log_i("Send ok![ %d-%d ]", CacheDataHeader.Read, m_iPublishMsgId);
 }
 void LoadParameter(void);
 void InitCache()
@@ -196,13 +196,13 @@ void InitCache()
       for (i = 0; i < 1024; i++)
         write(m_iCacheFd, buf, sizeof(buf));
       close(m_iCacheFd);
-      log_w("Create cache file");
+      log_w("Create eeprom file");
     }
     m_iCacheFd = open("/tmp/eeprom", O_RDWR);//打开文件
   } else
     m_iCacheFd = open("/sys/bus/i2c/devices/0-0050/eeprom", O_RDWR);//打开文件
   if (m_iCacheFd < 0)
-    log_e("####i2c test device open failed####");
+    log_e("not found eeprom");
   pthread_cond_init(&CacheDataHeader.notempty, NULL);
   pthread_cond_init(&CacheDataHeader.sendok, NULL);
   LoadParameter();

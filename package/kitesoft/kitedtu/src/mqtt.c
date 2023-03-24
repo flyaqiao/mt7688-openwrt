@@ -29,7 +29,7 @@ int MqttPublish(int *msgId, char *topic, char *payload, int qos)
   if (m_bConnected != 1)
     return 0;
   sprintf(szTopic, "d/%s/%s", szMqttUser, topic);
-  return mosquitto_publish(m_mosq, msgId, szTopic, strlen(payload), payload, 0, 0) == MOSQ_ERR_SUCCESS;
+  return mosquitto_publish(m_mosq, msgId, szTopic, strlen(payload), payload, qos, 0) == MOSQ_ERR_SUCCESS;
 }
 int MqttSubscribe(char *topic, int qos)
 {
@@ -68,11 +68,13 @@ static void my_connect_callback(struct mosquitto *mosq, void *obj, int rc)
     sprintf(szData, "{\"date\":%ld,\"lat\":\"%s\",\"long\":\"%s\",\"ver\":%d,\"MachType\":%d,\"Times\":%d,\"hashver\":\"%s\"}",
             tt, m_Parameter.latitude, m_Parameter.longitude, SVNVERSION, m_Parameter.MachType, times++, GITVERSION);
     MqttPublish(NULL, "reg", szData, 1);
+    log_i("Mqtt connected");
   }
 }
 
 static void my_disconnect_callback(struct mosquitto *mosq, void *obj, int rc)
 {
+  log_e("Mqtt disconnect");
   m_bConnected = 0;
 }
 
@@ -153,7 +155,7 @@ void report_state(void)
   State2Json(szPayload);
   MqttPublish(NULL, "state/report", szPayload, 0);
 }
-int asyncupgarde(char *url, int ver, char *script)
+static int asyncupgarde(char *url, int ver, char *script)
 {
 #ifndef WIN31
   char cmd[128];
@@ -203,7 +205,10 @@ static void my_message_callback(struct mosquitto *mosq, void *obj, const struct 
     }
   }
 }
-
+static void my_log_callback(struct mosquitto *mosq, void *obj, int level, const char *str)
+{
+  log_e("log level:%d str:%s\n", level, str);
+}
 void MqttThread(void *arg)
 {
   int ret;
@@ -221,16 +226,18 @@ void MqttThread(void *arg)
     mosquitto_lib_cleanup();
     return;
   }
-  // 设置回调函数
-  // 参数：句柄、回调函数
-  mosquitto_connect_callback_set(m_mosq, my_connect_callback);
-  mosquitto_disconnect_callback_set(m_mosq, my_disconnect_callback);
-  //mosquitto_subscribe_callback_set(m_mosq, my_subscribe_callback);
-  mosquitto_publish_callback_set(m_mosq, my_publish_callback);
-  mosquitto_message_callback_set(m_mosq, my_message_callback);
   // 开始通信：循环执行
   while (1) {
     if (m_bConnected == 0) {
+      mosquitto_reinitialise(m_mosq, m_Parameter.MACID, true, NULL);
+      // 设置回调函数
+      // 参数：句柄、回调函数
+      mosquitto_connect_callback_set(m_mosq, my_connect_callback);
+      mosquitto_disconnect_callback_set(m_mosq, my_disconnect_callback);
+      //mosquitto_subscribe_callback_set(m_mosq, my_subscribe_callback);
+      mosquitto_publish_callback_set(m_mosq, my_publish_callback);
+      mosquitto_message_callback_set(m_mosq, my_message_callback);
+      //mosquitto_log_callback_set(m_mosq, my_log_callback);
       if (strlen(m_Parameter.CCID) > 4)
         strcpy(szMqttUser, m_Parameter.CCID + 4);
       else
@@ -249,7 +256,7 @@ void MqttThread(void *arg)
       ret = mosquitto_connect(m_mosq, m_Parameter.MqttServer, m_Parameter.MqttPort, KEEP_ALIVE);
       if (ret) {
         log_e("Connect server error[%d]!(%s,%s,%s)", ret, m_Parameter.MACID, szMqttUser, m_Parameter.MqttPwd);
-        Sleep(60000);
+        Sleep(6000);
       }
       Sleep(1000);
     } else if (m_bConnected > 1) {
