@@ -294,14 +294,9 @@ void LoadParameter(void)
     m_Parameter.MqttPort = 1883;
     strcpy(m_Parameter.longitude, "30.326558");
     strcpy(m_Parameter.latitude, "120.088792");
-    execmd("ifconfig | grep br-lan | awk '{ print $5 }'  | sed 's/://g'", m_Parameter.MACID, sizeof(m_Parameter.MACID));
+    execmd("cat /sys/class/net/br-lan/address | sed 's/://g'", m_Parameter.MACID, sizeof(m_Parameter.MACID));
     m_Parameter.MACID[12] = 0;
     p = m_Parameter.MACID;
-    while (*p) {
-      if (*p >= 'A' && *p <= 'F')
-        *p += 32;
-      p++;
-    }
     log_w("Parameter Init");
   }
   ParameterCheck();

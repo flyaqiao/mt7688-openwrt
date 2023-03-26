@@ -16,42 +16,46 @@ apsta)
 	uci set wireless.ap0.ssid="KITEDTU"
 	uci set wireless.ap0.encryption='none'
 
-	uci set wireless.sta=wifi-iface
-	uci set wireless.sta.device='radio0'
-	uci set wireless.sta.mode='sta'
-	uci set wireless.sta.network='wwan'
-	uci set wireless.sta.encryption='psk'
+	uci set wireless.sta0=wifi-iface
+	uci set wireless.sta0.device='radio0'
+	uci set wireless.sta0.mode='sta'
+	uci set wireless.sta0.network='wwan'
 
 	uci set network.wwan=interface
 	uci set network.wwan.proto='dhcp'
 	if [ -n "$2" ];then
-		uci set wireless.sta.ssid="$2"
+		uci set wireless.sta0.ssid="$2"
 		if [ -n "$3" ];then
-		uci set wireless.sta.key="$3"
+			uci set wireless.sta0.key="$3"
 		else
-		uci delete wireless.sta.ket
+			uci delete wireless.sta0.key
+			uci set wireless.sta0.encryption='none'
 		fi
 	fi
 	uci commit
 	/etc/init.d/network restart
 	;;
 sta)
-	if [ -n "$2" ];then
-		uci set wireless.sta.ssid="$2"
-		if [ -n "$3" ];then
-		uci set wireless.sta.key="$3"
-		else
-		uci delete wireless.sta.key
-		fi
-	fi
+	uci set wireless.sta0=wifi-iface
+	uci set wireless.sta0.device='radio0'
+	uci set wireless.sta0.mode='sta'
+	uci set wireless.sta0.network='wwan'
 	uci set wireless.radio0.disabled='0'
 	uci set wireless.ap0.disabled=1
-	uci set wireless.sta.disabled=0
-	uci set wireless.sta=wifi-iface
-	uci set wireless.sta.device='radio0'
-	uci set wireless.sta.mode='sta'
-	uci set wireless.sta.network='wwan'
-	uci set wireless.sta.encryption='psk'
+	uci set wireless.sta0.disabled=0
+	if [ -n "$4" ]; then
+        uci set wireless.sta0.encryption="$4"
+	else
+        uci set wireless.sta0.encryption='psk'
+	fi
+	if [ -n "$2" ];then
+		uci set wireless.sta0.ssid="$2"
+		if [ -n "$3" ];then
+			uci set wireless.sta0.key="$3"
+		else
+			uci delete wireless.sta0.key
+		fi
+	fi
 
 	uci set network.wwan=interface
 	uci set network.wwan.proto='dhcp'
@@ -60,7 +64,7 @@ sta)
 	;;
 ap)
 	uci set wireless.radio0.disabled='0'
-	uci set wireless.sta.disabled=1
+	uci set wireless.sta0.disabled=1
 	uci set wireless.ap0.disabled=0
 
 	uci set network.wwan=interface
