@@ -42,7 +42,7 @@ void GprsInit();
 void GprsGetLocation(void);
 
 static void *m_pInputQueue = NULL;
-const uint32_t gpio_defs[] = { GPIO18, GPIO15, GPIO16, GPIO17, GPIO39, GPIO40 };
+const uint32_t gpio_defs[] = { GPIO18, GPIO15, GPIO17, GPIO16, GPIO39, GPIO40 };
 static void GpioThreadIrq(void *arg)
 {
   int i;
