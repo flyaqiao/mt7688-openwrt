@@ -182,9 +182,8 @@ detect_mac80211() {
 			set wireless.ap${devidx}.network=lan
 			set wireless.ap${devidx}.mode=ap
 			set wireless.ap${devidx}.ssid=KITEDTU_$(cat /sys/class/ieee80211/${dev}/macaddress|awk -F ":" '{print $4""$5""$6 }'| tr a-z A-Z)
-			set wireless.ap${devidx}.encryption=psk2
-			set wireless.ap${devidx}.key=1234567890
-			set wireless.ap${devidx}.disable=0
+			set wireless.ap${devidx}.encryption=none
+			set wireless.ap${devidx}.disabled=0
 
 EOF
 		uci -q commit wireless
