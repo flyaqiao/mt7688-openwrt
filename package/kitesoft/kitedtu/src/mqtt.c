@@ -155,7 +155,7 @@ void report_state(void)
   State2Json(szPayload);
   MqttPublish(NULL, "state/report", szPayload, 0);
 }
-static int asyncupgarde(char *url, int ver, char *script)
+static int asyncupgrade(char *url, int ver, char *script)
 {
 #ifndef WIN31
   char cmd[128];
@@ -184,12 +184,14 @@ static void my_message_callback(struct mosquitto *mosq, void *obj, const struct 
           else if (obj->type == cJSON_Number)
             ver = obj->valueint;
         }
+        if (cJSON_GetObjectItem(cjson, "cmd") != NULL)
+          strncpy(script, cJSON_GetObjectItem(cjson, "cmd")->valuestring, sizeof(script) - 1);
         cJSON_Delete(cjson);//清除结构体
         if (strlen(url) == 0)
-          strcpy(url, "http://web.kitesoft.cn:8888/kitedtu/");
+          strcpy(url, m_Parameter.UpgUrl);
         if (strlen(script) == 0)
           strcpy(script, "kiteupg.sh");
-        asyncupgarde(url, ver, script);
+        asyncupgrade(url, ver, script);
       }
     } else if (strcmp(szTopic, "cfg/set") == 0) {
       if (Json2Config(msg->payload))
@@ -245,7 +247,7 @@ void MqttThread(void *arg)
       if (strlen(m_Parameter.MqttPwd) == 0) {
         char szPostData[128];
         sprintf(szPostData, "clientid=%s&username=%s", m_Parameter.MACID, szMqttUser);
-        HttpPost(szPostData, "http://mqtt.fxy360.com:15068/mqtt/query");
+        HttpPost(szPostData, m_Parameter.AuthUrl);
       }
       // 连接至服务器
       // 参数：句柄、ip（host）、端口、心跳

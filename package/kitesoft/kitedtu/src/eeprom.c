@@ -252,6 +252,7 @@ static void ParameterCheck(void)
 static void SaveParameter(void)
 {
   if (memcmp(&m_Parameter, &m_ParameterBak, sizeof(m_Parameter)) != 0) {
+    int MqttReconnect();
     unsigned char tmp[sizeof(PARAMETER)];
     /* CRC32 usage. */
     m_Parameter.Magic = 0x85868483;
@@ -259,6 +260,10 @@ static void SaveParameter(void)
     m_Parameter.Crc = CalcCRC32((unsigned char *)&m_Parameter, sizeof(m_Parameter) - sizeof(uint32_t), POLY32, 0);
     Rc4Encrypt((unsigned char *)&m_Parameter, tmp, sizeof(m_Parameter), keys);
     AT24CXX_Write(0, (uint8_t *)tmp, sizeof(m_Parameter));
+    if (strcmp(m_Parameter.MqttServer, m_ParameterBak.MqttServer) != 0 ||
+        m_Parameter.MqttPort != m_ParameterBak.MqttPort) {
+      MqttReconnect();
+    }
     memcpy(&m_ParameterBak, &m_Parameter, sizeof(m_Parameter));
   }
 #if 0
@@ -291,6 +296,8 @@ void LoadParameter(void)
     char *p;
     memset((void *)&m_Parameter, 0, sizeof(PARAMETER));
     strcpy(m_Parameter.MqttServer, "mqtt.fxy360.com");
+    strcpy(m_Parameter.AuthUrl, "http://mqtt.fxy360.com:15068/mqtt/query");
+    strcpy(m_Parameter.UpgUrl, "http://web.kitesoft.cn:8888/kitedtu/");
     m_Parameter.MqttPort = 1883;
     strcpy(m_Parameter.longitude, "30.326558");
     strcpy(m_Parameter.latitude, "120.088792");

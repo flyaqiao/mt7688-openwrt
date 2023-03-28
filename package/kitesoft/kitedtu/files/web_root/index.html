@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>KiteDTU</title>
+  <link rel="stylesheet" href="/css/bootstrap.min.css">
+  <script src="/qrcode.js"></script>
+  <style>
+    #qrcode {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      margin: 0px 0px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1 style="text-align:center;">Welcome to KiteDTU</h1>
+  <div style="text-align:center;">
+    <table border="0px" cellpadding="10px" style="margin: auto">
+      <tr>
+        <td>MAC : </td>
+        <td id="mac" name="mac"></td>
+      </tr>
+      <tr>
+        <td>CCID: </td>
+        <td id="ccid" name="ccid"></td>
+      </tr>
+    </table>
+  </div>
+  <hr />
+  <form id="cfg_form" name="cfg_form" class="form-horizontal" role="form" action="/api/config/set" method="POST"
+    target="hidden_iframe">
+    <div class="form-group">
+      <label for="wifissid" class="col-sm-2 control-label">WIFI SSID:</label>
+      <div class="col-sm-9">
+        <input type="text" class="form-control" id="wifissid" name="wifissid" value="" placeholder="请输入SSID">
+      </div>
+    </div>
+    <div class="form-group">
+      <label for="wifipwd" class="col-sm-2 control-label">WIFI KEY:</label>
+      <div class="col-sm-9">
+        <input type="text" class="form-control" id="wifipwd" name="wifipwd" value="" placeholder="请输入密码"
+          autocomplete="off">
+      </div>
+    </div>
+    <div class="form-group">
+      <label for="wifienc" class="col-sm-2 control-label">WIFI ENC:</label>
+      <div class="col-sm-9">
+        <select id="sel_role" id="wifienc" name="wifienc" class="selectpicker" title="请选择" data-width="150px" style="">
+          <option value='none'>none</option>
+          <option value='wep'>wep</option>
+          <option value='psk'>psk</option>
+          <option value='psk2'>psk2</option>
+          <option value='wpa'>wpa</option>
+          <option value='wpa2'>wpa2</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label for="mqttserver" class="col-sm-2 control-label">MQTT Server:</label>
+      <div class="col-sm-9">
+        <input type="text" class="form-control" id="mqttserver" name="mqttserver" value="" placeholder="请输入MQTT Server">
+      </div>
+    </div>
+    <div class="form-group">
+      <label for="mqttport" class="col-sm-2 control-label">MQTT Port:</label>
+      <div class="col-sm-9">
+        <input type="text" class="form-control" id="mqttport" name="mqttport" value="" placeholder="请输入MQTT Server">
+      </div>
+    </div>
+    <div class="form-group">
+      <label for="authurl" class="col-sm-2 control-label">Auth Server:</label>
+      <div class="col-sm-9">
+        <input type="text" class="form-control" id="authurl" name="authurl" value="" placeholder="请输入认证服务器">
+      </div>
+    </div>
+    <!--div class="form-group">
+        <label for="upgurl" class="col-sm-2 control-label">更新服务器:</label>
+        <div class="col-sm-9">
+        <input type="text" class="form-control" id="upgurl" name="upgurl" value="" placeholder="请输入更新服务器">
+        </div>
+        </div-->
+    <div class="form-group">
+      <div class="col-sm-offset-2 col-sm-9">
+        <!--button type="submit" class="btn btn-default">提交</button-->
+      </div>
+    </div>
+  </form>
+  <form id="rst_form" name="rst_form" class="form-horizontal" role="form" action="/api/config/reset" method="POST"
+    target="hidden_iframe">
+    <div class="form-group">
+      <div class="col-sm-offset-2 col-sm-9">
+        <!--button type="submit" class="btn btn-default">恢复出厂设置</button-->
+      </div>
+    </div>
+  </form>
+  <form id="reboot_form" name="reboot_form" class="form-horizontal" role="form" action="/api/reboot" method="POST"
+    target="hidden_iframe">
+    <div class="form-group">
+      <div class="col-sm-offset-2 col-sm-9">
+        <!--button type="submit" class="btn btn-default">重启设备</button-->
+      </div>
+    </div>
+  </form>
+  <div style="text-align:center;">
+    <input type="button" value="提交配置" onclick="config_post()" />
+    <input type="button" value="恢复出厂设置" onclick="reset_config()" />
+    <input type="button" value="重启设备" onclick="reboot_post()" />
+    <div id="qrcode">
+    </div>
+  </div>
+  <iframe id="hidden_iframe" name="hidden_iframe" style="display:none;"></iframe>
+</body>
+<script>
+  async function getProvices() {
+    const url = "/api/config/get";
+    const config = {
+      method: "GET",
+    }
+    try {
+      const resp = await fetch(url, config);
+      const pro = await resp.json();
+      console.log(pro);
+      document.getElementsByName("wifissid")[0].value = pro.wifissid;
+      document.getElementsByName("wifipwd")[0].value = pro.wifipwd;
+      document.getElementsByName("mqttserver")[0].value = pro.mqttserver;
+      document.getElementsByName("mqttport")[0].value = pro.mqttport;
+      document.getElementsByName("authurl")[0].value = pro.authurl;
+      //document.getElementsByName("upgurl")[0].value = pro.upgurl;
+      //document.getElementByName('wifienc')[0].SelectedIndex = 2;
+      document.getElementsByName("mac")[0].innerHTML = pro.MACID;
+      document.getElementsByName("ccid")[0].innerHTML = pro.CCID;
+      var qrcode = new QRCode(document.getElementById("qrcode"), {
+        width: 140, //设置宽高
+        height: 140
+      });
+      qrcode.makeCode("{MAC:" + pro.MACID + ",CCID:" + pro.CCID + "}");
+      var ops = document.getElementsByTagName("option");
+      for (var i4 = 0; i4 < ops.length; i4++) {
+        op4 = ops[i4];
+        if (op4.value == pro.wifienc)
+          op4.selected = true;
+        else
+          op4.selected = false;
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  }
+  async function post_form(form, msg) {
+    // 1.创建一个FormData对象，直接把我们的表单传进去
+    var formData = new FormData(form);
+    const data = new URLSearchParams();
+    for (var key of formData.keys()) {
+      for (const pair of formData) {
+        data.append(pair[0], pair[1]);
+      }
+    }
+
+    const config = {
+      method: form.method,
+      body: data
+    }
+    try {
+      const resp = await fetch(form.action, config);
+      alert(msg);
+    } catch (err) {
+      console.log(err);
+    }
+  }
+  function config_post() //声明标识符
+  {
+    post_form(cfg_form, "设置提交成功");
+  }
+  function reset_config() //声明标识符
+  {
+    post_form(rst_form, "正在重置设备...");
+  }
+  function reboot_post() //声明标识符
+  {
+    post_form(reboot_form, "正在重启设备...");
+  }
+  getProvices();
+</script>
+
+</html>

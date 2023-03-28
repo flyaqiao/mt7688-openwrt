@@ -24,9 +24,11 @@ typedef struct tagParameter {
   char CCID[32];
   char longitude[20]; // 经度
   char latitude[20];  // 纬度
-  char MqttServer[32];
+  char MqttServer[128];
   uint32_t MqttPort;
   char MqttPwd[32];
+  char AuthUrl[128];
+  char UpgUrl[128];
   uint32_t Crc;
 } PARAMETER;
 typedef enum {

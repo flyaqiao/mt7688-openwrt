@@ -1,0 +1,1 @@
+package/kitesoft/kitedtu/mkosupg.sh
