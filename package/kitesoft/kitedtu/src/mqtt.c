@@ -64,6 +64,8 @@ static void my_connect_callback(struct mosquitto *mosq, void *obj, int rc)
       m_bConnected = 0;
     if (MqttSubscribe("state/get", 0) == 0)
       m_bConnected = 0;
+    if (MqttSubscribe("cmd", 0) == 0)
+      m_bConnected = 0;
     time(&tt);
     sprintf(szData, "{\"date\":%ld,\"lat\":\"%s\",\"long\":\"%s\",\"ver\":%d,\"MachType\":%d,\"Times\":%d,\"hashver\":\"%s\"}",
             tt, m_Parameter.latitude, m_Parameter.longitude, SVNVERSION, m_Parameter.MachType, times++, GITVERSION);
@@ -204,6 +206,11 @@ static void my_message_callback(struct mosquitto *mosq, void *obj, const struct 
         set_state_report(1);
       else
         set_state_report(0);
+    } else if (strcmp(szTopic, "cmd") == 0) {
+      char szCmdResult[4096];
+      memset(szCmdResult, 0, sizeof(szCmdResult));
+      execmd(msg->payload, szCmdResult, sizeof(szCmdResult));
+      MqttPublish(NULL, "cmd/ack", szCmdResult, 0);
     }
   }
 }
