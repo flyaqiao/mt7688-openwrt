@@ -52,10 +52,10 @@
         <select id="sel_role" id="wifienc" name="wifienc" class="selectpicker" title="请选择" data-width="150px" style="">
           <option value='none'>none</option>
           <option value='wep'>wep</option>
-          <option value='psk'>psk</option>
-          <option value='psk2'>psk2</option>
-          <option value='wpa'>wpa</option>
-          <option value='wpa2'>wpa2</option>
+          <option value='psk'>WPA (PSK)Pre-shared Key</option>
+          <option value='psk2'>WPA2 (PSK)Pre-shared Key</option>
+          <option value='wpa'>WPA RADIUS</option>
+          <option value='wpa2'>WPA2 RADIUS</option>
         </select>
       </div>
     </div>
@@ -113,6 +113,107 @@
     </div>
   </div>
   <iframe id="hidden_iframe" name="hidden_iframe" style="display:none;"></iframe>
+  <table border='1' align="center">
+    <thead>
+      <tr>
+        <th>Value</th>
+        <th>WPA Version</th>
+        <th>Ciphers</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>psk2+tkip+ccmp<br>psk2+tkip+aes</code></td>
+        <td>WPA2 Personal (PSK)</td>
+        <td>TKIP, CCMP</td>
+      </tr>
+      <tr>
+        <td>psk2+tkip</code></td>
+        <td>WPA2 Personal (PSK)</td>
+        <td>TKIP</td>
+      </tr>
+      <tr>
+        <td>psk2+ccmp</code><br>psk2+aes</code><br>psk2</code></td>
+        <td>WPA2 Personal (PSK)</td>
+        <td>CCMP</td>
+      </tr>
+      <tr>
+        <td>psk+tkip+ccmp</code><br>psk+tkip+aes</code></td>
+        <td>WPA Personal (PSK)</td>
+        <td>TKIP, CCMP</td>
+      </tr>
+      <tr>
+        <td>psk+tkip</code></td>
+        <td>WPA Personal (PSK)</td>
+        <td>TKIP</td>
+      </tr>
+      <tr>
+        <td>psk+ccmp</code><br>psk+aes</code><br>psk</code></td>
+        <td>WPA Personal (PSK)</td>
+        <td>CCMP</td>
+      </tr>
+      <tr>
+        <td>psk-mixed+tkip+ccmp</code><br>psk-mixed+tkip+aes</code></td>
+        <td>WPA/WPA2 Personal (PSK) mixed mode</td>
+        <td>TKIP, CCMP</td>
+      </tr>
+      <tr>
+        <td>psk-mixed+tkip</code></td>
+        <td>WPA/WPA2 Personal (PSK) mixed mode</td>
+        <td>TKIP</td>
+      </tr>
+      <tr>
+        <td>psk-mixed+ccmp</code><br>psk-mixed+aes</code><br>psk-mixed</code></td>
+        <td>WPA/WPA2 Personal (PSK) mixed mode</td>
+        <td>CCMP</td>
+      </tr>
+      <tr>
+        <td>wpa2+tkip+ccmp</code><br>wpa2+tkip+aes</code></td>
+        <td>WPA2 Enterprise</td>
+        <td>TKIP, CCMP</td>
+      </tr>
+      <tr>
+        <td>wpa2+ccmp</code><br>wpa2+aes</code><br>wpa2</code></td>
+        <td>WPA2 Enterprise</td>
+        <td>CCMP</td>
+      </tr>
+      <tr>
+        <td>wpa2+tkip</code></td>
+        <td>WPA2 Enterprise</td>
+        <td>TKIP</td>
+      </tr>
+      <tr>
+        <td>wpa+tkip+ccmp</code><br>wpa+tkip+aes</code></td>
+        <td>WPA Enterprise</td>
+        <td>TKIP, CCMP</td>
+      </tr>
+      <tr>
+        <td>wpa+ccmp</code><br>wpa+aes</code></td>
+        <td>WPA Enterprise</td>
+        <td>CCMP</td>
+      </tr>
+      <tr>
+        <td>wpa+tkip</code><br>wpa</code></td>
+        <td>WPA Enterprise</td>
+        <td>TKIP</td>
+      </tr>
+      <tr>
+        <td>wpa-mixed+tkip+ccmp</code><br>wpa-mixed+tkip+aes</code></td>
+        <td>WPA/WPA2 Enterprise mixed mode</td>
+        <td>TKIP, CCMP</td>
+      </tr>
+      <tr>
+        <td>wpa-mixed+tkip</code></td>
+        <td>WPA/WPA2 Enterprise mixed mode</td>
+        <td>TKIP</td>
+      </tr>
+      <tr>
+        <td>wpa-mixed+ccmp<br>wpa-mixed+aes<br>wpa-mixed</td>
+        <td>WPA/WPA2 Enterprise mixed mode</td>
+        <td>CCMP</td>
+      </tr>
+    </tbody>
+  </table>
 </body>
 <script>
   async function getProvices() {
