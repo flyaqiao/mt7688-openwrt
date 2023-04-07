@@ -129,12 +129,16 @@ static void ASyncCallShellCmd(void *arg)
   int type = arg;
   Sleep(2 * 1000);
   if (type == 0) {
+    int i;
     sprintf(cmd, "wifimode sta %s %s %s", m_wifissid, m_wifipwd, m_wifienc);
     execmd(cmd, tmp, sizeof(tmp));
-    Sleep(10 * 1000);
-    execmd("ifconfig | grep wlan0", tmp, sizeof(tmp));
-    if (strstr(tmp, "wlan0") == NULL)
+    for (i = 0; i < 5; i++) {
+      Sleep(10 * 1000);
+      execmd("ifconfig | grep wlan0", tmp, sizeof(tmp));
+      if (strstr(tmp, "wlan0") != NULL)
+        break;
       execmd("wifi up", tmp, sizeof(tmp));
+    }
     m_wifichg = 0;
   } else if (type == 1)
     execmd("firstboot -y && reboot", tmp, sizeof(tmp));

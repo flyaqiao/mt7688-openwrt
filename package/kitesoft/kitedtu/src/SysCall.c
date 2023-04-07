@@ -210,7 +210,9 @@ int QueuePop(void *queue, void *pItem, int timeout)
 #endif
 int execmd(char *input, char *output, int maxlen)
 {
-  int reslen;
+  //int reslen;
+  int idx = 0;
+  char ch;
   FILE *pipe;
   if (NULL == input || NULL == output)
     return -1;
@@ -222,7 +224,13 @@ int execmd(char *input, char *output, int maxlen)
 #endif
     return -2;
   }
-  reslen = fread(output, sizeof(char), maxlen, pipe);
+  //reslen = fread(output, sizeof(char), maxlen, pipe);
+  while ((ch = fgetc(pipe)) != EOF) {
+    output[idx++] = ch;
+    if (idx >= maxlen)
+      break;
+  }
   _pclose(pipe);
-  return reslen;
+  //return reslen;
+  return idx;
 }
