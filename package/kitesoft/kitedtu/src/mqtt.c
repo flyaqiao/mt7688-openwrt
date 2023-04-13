@@ -45,6 +45,10 @@ int MqttReconnect()
 {
   m_bConnected = 2;
 }
+int MqttGetConnected()
+{
+  return m_bConnected == 1;
+}
 static void my_connect_callback(struct mosquitto *mosq, void *obj, int rc)
 {
   if (rc) {
@@ -131,7 +135,7 @@ static int Json2Config(char *msg)
         m_Parameter.RunDelay = atoi(obj->valuestring);
       else if (obj->type == cJSON_Number)
         m_Parameter.RunDelay = obj->valueint;
-      if (m_Parameter.RunDelay < 500 || m_Parameter.RunDelay > 30000)
+      if (m_Parameter.RunDelay < 500 || m_Parameter.RunDelay > 60000)
         m_Parameter.RunDelay = 3000;
     }
     if (cJSON_GetObjectItem(cjson, "MqttPort") != NULL) {

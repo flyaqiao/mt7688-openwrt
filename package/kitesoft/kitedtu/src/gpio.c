@@ -25,38 +25,32 @@ int gpio_is_exported(int pin_number)
 {
   char  buf[FILENAME_SIZE];
   struct stat dir;
-
   //check if the gpioXX directory exists
   snprintf(buf, sizeof(buf), GPIO_PATH "/gpio%d/", pin_number);
-  if (stat(buf, &dir) == 0 && S_ISDIR(dir.st_mode)) {
+  if (stat(buf, &dir) == 0 && S_ISDIR(dir.st_mode))
     return GPIO_SUCCESS;
-  } else {
+  else
     return 0;
-  }
 }
 //导出io
 int gpio_export(int pin_number)
 {
-	char buf[FILENAME_SIZE];
-	int  fp;
-	int  length;
-
-	if (gpio_is_exported(pin_number)) { return GPIO_SUCCESS; }
-
-	//write to export file
-	fp = open(GPIO_PATH "/export", O_WRONLY);
-	if (fp == -1) {
-		return GPIO_INVALID_RESOURCE;
-	}
-
-	length = snprintf(buf, sizeof(buf), "%d", pin_number);
-	if (write(fp, buf, length * sizeof(char)) == -1) {
-		close(fp);
-		return GPIO_INVALID_RESOURCE;
-	}
-
-	close(fp);
-	return gpio_is_exported(pin_number);
+  char buf[FILENAME_SIZE];
+  int  fp;
+  int  length;
+  if (gpio_is_exported(pin_number))
+    return GPIO_SUCCESS;
+  //write to export file
+  fp = open(GPIO_PATH "/export", O_WRONLY);
+  if (fp == -1)
+    return GPIO_INVALID_RESOURCE;
+  length = snprintf(buf, sizeof(buf), "%d", pin_number);
+  if (write(fp, buf, length * sizeof(char)) == -1) {
+    close(fp);
+    return GPIO_INVALID_RESOURCE;
+  }
+  close(fp);
+  return gpio_is_exported(pin_number);
 }
 /**
 * unexport specified GPIO pin
@@ -68,48 +62,38 @@ int gpio_export(int pin_number)
 */
 int gpio_unexport(int pin_number)
 {
-	char buf[FILENAME_SIZE];
-	int  fp;
-	int  length;
-
-	//write to unexport file
-	fp = open(GPIO_PATH "/unexport", O_WRONLY);
-	if (fp == -1) {
-		return GPIO_INVALID_RESOURCE;
-	}
-
-	length = snprintf(buf, sizeof(buf), "%d", pin_number);
-	if (write(fp, buf, length * sizeof(char)) == -1) {
-		close(fp);
-		return GPIO_INVALID_RESOURCE;
-	}
-
-	close(fp);
-	return GPIO_SUCCESS;
+  char buf[FILENAME_SIZE];
+  int  fp;
+  int  length;
+  //write to unexport file
+  fp = open(GPIO_PATH "/unexport", O_WRONLY);
+  if (fp == -1)
+    return GPIO_INVALID_RESOURCE;
+  length = snprintf(buf, sizeof(buf), "%d", pin_number);
+  if (write(fp, buf, length * sizeof(char)) == -1) {
+    close(fp);
+    return GPIO_INVALID_RESOURCE;
+  }
+  close(fp);
+  return GPIO_SUCCESS;
 }
 
 int gpio_open(int pin_number)
 {
-	char buf[FILENAME_SIZE];
-	int  fp;
-
-	if (!gpio_is_exported(pin_number)) {
-		if (GPIO_SUCCESS != gpio_export(pin_number))
-			return GPIO_INVALID_RESOURCE;
-	}
-
-	// open value file
-	snprintf(buf, sizeof(buf), "%s/gpio%d/value", GPIO_PATH, pin_number);
-	fp = open(buf, O_RDWR);
-	if (fp == -1) {
-		return GPIO_INVALID_RESOURCE;
-	}
-
-	if (lseek(fp, 0, SEEK_SET) < 0) {
-		close(fp);
-	}
-
-	return fp;
+  char buf[FILENAME_SIZE];
+  int  fp;
+  if (!gpio_is_exported(pin_number)) {
+    if (GPIO_SUCCESS != gpio_export(pin_number))
+      return GPIO_INVALID_RESOURCE;
+  }
+  // open value file
+  snprintf(buf, sizeof(buf), "%s/gpio%d/value", GPIO_PATH, pin_number);
+  fp = open(buf, O_RDWR);
+  if (fp == -1)
+    return GPIO_INVALID_RESOURCE;
+  if (lseek(fp, 0, SEEK_SET) < 0)
+    close(fp);
+  return fp;
 }
 /**
 * Read specified GPIO pin
@@ -121,33 +105,25 @@ int gpio_open(int pin_number)
 */
 int gpio_read(int pin_number)
 {
-	char buf[FILENAME_SIZE];
-	int  fp;
-
-	if (!gpio_is_exported(pin_number)) {
-		if (GPIO_SUCCESS != gpio_export(pin_number))
-			return GPIO_INVALID_RESOURCE;
-	}
-
-	//read value file
-	snprintf(buf, sizeof(buf), "%s/gpio%d/value", GPIO_PATH, pin_number);
-	fp = open(buf, O_RDWR);
-	if (fp == -1) {
-		return GPIO_INVALID_RESOURCE;
-	}
-
-	if (lseek(fp, 0, SEEK_SET) < 0) {
-		close(fp);
-	}
-
-	if (read(fp, buf, 2 * sizeof(char)) != 2) {
-		close(fp);
-		return GPIO_ERROR_READ;
-	}
-
-	close(fp);
-
-	return (int) strtol(buf, NULL, 10);
+  char buf[FILENAME_SIZE];
+  int  fp;
+  if (!gpio_is_exported(pin_number)) {
+    if (GPIO_SUCCESS != gpio_export(pin_number))
+      return GPIO_INVALID_RESOURCE;
+  }
+  //read value file
+  snprintf(buf, sizeof(buf), "%s/gpio%d/value", GPIO_PATH, pin_number);
+  fp = open(buf, O_RDWR);
+  if (fp == -1)
+    return GPIO_INVALID_RESOURCE;
+  if (lseek(fp, 0, SEEK_SET) < 0)
+    close(fp);
+  if (read(fp, buf, 2 * sizeof(char)) != 2) {
+    close(fp);
+    return GPIO_ERROR_READ;
+  }
+  close(fp);
+  return (int) strtol(buf, NULL, 10);
 }
 
 /**
@@ -162,36 +138,27 @@ int gpio_read(int pin_number)
 */
 int gpio_write(int pin_number, int value)
 {
-	char buf[FILENAME_SIZE];
-	int  fp;
-	int  length;
-
-
-	if (GPIO_SUCCESS != gpio_is_exported(pin_number)) {
-		if (GPIO_SUCCESS != gpio_export(pin_number) )
-			return GPIO_INVALID_RESOURCE;
-	}
-
-	//write to value file
-	snprintf(buf, sizeof(buf), "%s/gpio%d/value", GPIO_PATH, pin_number);
-	fp = open(buf, O_RDWR);
-	if (fp == -1) {
-		return GPIO_INVALID_RESOURCE;
-	}
-
-	if ( lseek(fp, 0, SEEK_SET) < 0 ) {
-		close(fp);
-	}
-
-	length = snprintf(buf, sizeof(buf), "%d", value);
-	if (write(fp, buf, length * sizeof(char)) == -1) {
-		close(fp);
-		return GPIO_ERROR_WRITE;
-	}
-
-	close(fp);
-
-	return GPIO_SUCCESS;
+  char buf[FILENAME_SIZE];
+  int  fp;
+  int  length;
+  if (GPIO_SUCCESS != gpio_is_exported(pin_number)) {
+    if (GPIO_SUCCESS != gpio_export(pin_number))
+      return GPIO_INVALID_RESOURCE;
+  }
+  //write to value file
+  snprintf(buf, sizeof(buf), "%s/gpio%d/value", GPIO_PATH, pin_number);
+  fp = open(buf, O_RDWR);
+  if (fp == -1)
+    return GPIO_INVALID_RESOURCE;
+  if (lseek(fp, 0, SEEK_SET) < 0)
+    close(fp);
+  length = snprintf(buf, sizeof(buf), "%d", value);
+  if (write(fp, buf, length * sizeof(char)) == -1) {
+    close(fp);
+    return GPIO_ERROR_WRITE;
+  }
+  close(fp);
+  return GPIO_SUCCESS;
 }
 /**
 * set direction of specified GPIO pin
@@ -205,53 +172,45 @@ int gpio_write(int pin_number, int value)
 */
 int gpio_set_direction(int pin_number, int direction)
 {
-	char buf[FILENAME_SIZE];
-	int  fp;
-	int  length;
-
-	if (GPIO_SUCCESS != gpio_is_exported(pin_number)) {
-		if (GPIO_SUCCESS != gpio_export(pin_number))
-			return GPIO_INVALID_RESOURCE;
-	}
-
-	//write direction file
-	snprintf(buf, sizeof(buf), "%s/gpio%d/direction", GPIO_PATH, pin_number);
-	fp = open(buf, O_RDWR);
-	if (fp == -1) {
-		return GPIO_INVALID_RESOURCE;
-	}
-
-	if (lseek(fp, 0, SEEK_SET) < 0) {
-		close(fp);
-		return GPIO_INVALID_RESOURCE;
-	}
-
-	switch (direction) {
-	case GPIO_OUTPUT:
-		length = snprintf(buf, sizeof(buf), "out");
-		break;
-	case GPIO_INPUT:
-		length = snprintf(buf, sizeof(buf), "in");
-		break;
-	case GPIO_OUTPUT_HIGH:
-		length = snprintf(buf, sizeof(buf), "high");
-		break;
-	case GPIO_OUTPUT_LOW:
-		length = snprintf(buf, sizeof(buf), "low");
-		break;
-	default:
-		close(fp);
-		return GPIO_ERROR_DIRECTION;
-	}
-
-	if (write(fp, buf, length * sizeof(char)) == -1) {
-		close(fp);
-		return GPIO_ERROR_WRITE;
-	}
-
-	close(fp);
-
-	return GPIO_SUCCESS;
+  char buf[FILENAME_SIZE];
+  int  fp;
+  int  length;
+  if (GPIO_SUCCESS != gpio_is_exported(pin_number)) {
+    if (GPIO_SUCCESS != gpio_export(pin_number))
+      return GPIO_INVALID_RESOURCE;
+  }
+  //write direction file
+  snprintf(buf, sizeof(buf), "%s/gpio%d/direction", GPIO_PATH, pin_number);
+  fp = open(buf, O_RDWR);
+  if (fp == -1)
+    return GPIO_INVALID_RESOURCE;
+  if (lseek(fp, 0, SEEK_SET) < 0) {
+    close(fp);
+    return GPIO_INVALID_RESOURCE;
+  }
+  switch (direction) {
+  case GPIO_OUTPUT:
+    length = snprintf(buf, sizeof(buf), "out");
+    break;
+  case GPIO_INPUT:
+    length = snprintf(buf, sizeof(buf), "in");
+    break;
+  case GPIO_OUTPUT_HIGH:
+    length = snprintf(buf, sizeof(buf), "high");
+    break;
+  case GPIO_OUTPUT_LOW:
+    length = snprintf(buf, sizeof(buf), "low");
+    break;
+  default:
+    close(fp);
+    return GPIO_ERROR_DIRECTION;
+  }
+  if (write(fp, buf, length * sizeof(char)) == -1) {
+    close(fp);
+    return GPIO_ERROR_WRITE;
+  }
+  close(fp);
+  return GPIO_SUCCESS;
 }
 
 /**
@@ -264,128 +223,104 @@ int gpio_set_direction(int pin_number, int direction)
 */
 int gpio_get_direction(int pin_number)
 {
-	char buf[FILENAME_SIZE];
-	int  fp;
-	int  length;
-	int  result;
-
-	if (GPIO_SUCCESS != gpio_is_exported(pin_number)) {
-		if (GPIO_SUCCESS != gpio_export(pin_number))
-			return GPIO_INVALID_RESOURCE;
-	}
-
-	//read direction file
-	snprintf(buf, sizeof(buf), "%s/gpio%d/direction", GPIO_PATH, pin_number);
-	fp = open(buf, O_RDONLY);
-	if (fp == -1) {
-		return GPIO_INVALID_RESOURCE;
-	}
-
-	if (lseek(fp, 0, SEEK_SET) < 0 ) {
-		close(fp);
-		return GPIO_INVALID_RESOURCE;
-	}
-
-	memset(buf, '\0', sizeof(buf));
-	length = read(fp, buf, sizeof(buf));
-	close(fp);
-
-	if (length <= 0) {
-		return GPIO_INVALID_RESOURCE;
-	}
-
-	if (strncmp(buf, "out", 3) == 0) {
-		result = GPIO_OUTPUT;
-	} else if (strncmp(buf, "in", 2) == 0) {
-		result = GPIO_INPUT;
-	} else if (strncmp(buf, "high", 4) == 0) {
-		result = GPIO_OUTPUT_HIGH;
-	} else if (strncmp(buf, "low", 3) == 0) {
-		result = GPIO_OUTPUT_LOW;
-	} else {
-		result = GPIO_ERROR_DIRECTION;
-	}
-
-	return result;
+  char buf[FILENAME_SIZE];
+  int  fp;
+  int  length;
+  int  result;
+  if (GPIO_SUCCESS != gpio_is_exported(pin_number)) {
+    if (GPIO_SUCCESS != gpio_export(pin_number))
+      return GPIO_INVALID_RESOURCE;
+  }
+  //read direction file
+  snprintf(buf, sizeof(buf), "%s/gpio%d/direction", GPIO_PATH, pin_number);
+  fp = open(buf, O_RDONLY);
+  if (fp == -1)
+    return GPIO_INVALID_RESOURCE;
+  if (lseek(fp, 0, SEEK_SET) < 0) {
+    close(fp);
+    return GPIO_INVALID_RESOURCE;
+  }
+  memset(buf, '\0', sizeof(buf));
+  length = read(fp, buf, sizeof(buf));
+  close(fp);
+  if (length <= 0)
+    return GPIO_INVALID_RESOURCE;
+  if (strncmp(buf, "out", 3) == 0)
+    result = GPIO_OUTPUT;
+  else if (strncmp(buf, "in", 2) == 0)
+    result = GPIO_INPUT;
+  else if (strncmp(buf, "high", 4) == 0)
+    result = GPIO_OUTPUT_HIGH;
+  else if (strncmp(buf, "low", 3) == 0)
+    result = GPIO_OUTPUT_LOW;
+  else
+    result = GPIO_ERROR_DIRECTION;
+  return result;
 }
 
 int gpio_set_edge(int pin_number, int edge)
 {
-	char buf[FILENAME_SIZE];
-	int  fp;
-	int  length;
-
-	if (GPIO_SUCCESS != gpio_is_exported(pin_number)) {
-		if (GPIO_SUCCESS != gpio_export(pin_number))
-			return GPIO_INVALID_RESOURCE;
-	}
-
-	//write edge file
-	snprintf(buf, sizeof(buf), "%s/gpio%d/edge", GPIO_PATH, pin_number);
-	fp = open(buf, O_RDWR);
-	if (fp == -1) {
-		return GPIO_INVALID_RESOURCE;
-	}
-
-	if (lseek(fp, 0, SEEK_SET) < 0) {
-		close(fp);
-		return GPIO_INVALID_RESOURCE;
-	}
-
-	switch (edge) {
-	case GPIO_EDGE_NONE:
-		length = snprintf(buf, sizeof(buf), "none");
-		break;
-	case GPIO_EDGE_RISING:
-		length = snprintf(buf, sizeof(buf), "rising");
-		break;
-	case GPIO_EDGE_FALLING:
-		length = snprintf(buf, sizeof(buf), "falling");
-		break;
-	case GPIO_EDGE_BOTH:
-		length = snprintf(buf, sizeof(buf), "both");
-		break;
-	default:
-		close(fp);
-		return GPIO_ERROR_EDGE;
-	}
-
-	if (write(fp, buf, length * sizeof(char)) == -1) {
-		close(fp);
-		return GPIO_ERROR_WRITE;
-	}
-
-	close(fp);
-
-	return GPIO_SUCCESS;
+  char buf[FILENAME_SIZE];
+  int  fp;
+  int  length;
+  if (GPIO_SUCCESS != gpio_is_exported(pin_number)) {
+    if (GPIO_SUCCESS != gpio_export(pin_number))
+      return GPIO_INVALID_RESOURCE;
+  }
+  //write edge file
+  snprintf(buf, sizeof(buf), "%s/gpio%d/edge", GPIO_PATH, pin_number);
+  fp = open(buf, O_RDWR);
+  if (fp == -1)
+    return GPIO_INVALID_RESOURCE;
+  if (lseek(fp, 0, SEEK_SET) < 0) {
+    close(fp);
+    return GPIO_INVALID_RESOURCE;
+  }
+  switch (edge) {
+  case GPIO_EDGE_NONE:
+    length = snprintf(buf, sizeof(buf), "none");
+    break;
+  case GPIO_EDGE_RISING:
+    length = snprintf(buf, sizeof(buf), "rising");
+    break;
+  case GPIO_EDGE_FALLING:
+    length = snprintf(buf, sizeof(buf), "falling");
+    break;
+  case GPIO_EDGE_BOTH:
+    length = snprintf(buf, sizeof(buf), "both");
+    break;
+  default:
+    close(fp);
+    return GPIO_ERROR_EDGE;
+  }
+  if (write(fp, buf, length * sizeof(char)) == -1) {
+    close(fp);
+    return GPIO_ERROR_WRITE;
+  }
+  close(fp);
+  return GPIO_SUCCESS;
 }
 int gpio_open_irq(int pin_number, int edge)
 {
-	int fd = -1;
-
-	//导出io
-	if (GPIO_SUCCESS != gpio_export(pin_number)) {
-		perror("gpio_export failed!\n");
-	}
-
-	//配置成输入
-	if (gpio_set_direction(pin_number, GPIO_INPUT) != GPIO_SUCCESS) {
-		perror("open direction failed!\n");
-		return GPIO_INVALID_RESOURCE;
-	}
-
-	//边沿触发
-	if (GPIO_SUCCESS != gpio_set_edge(pin_number, GPIO_EDGE_BOTH)) {
-		perror("open edge failed!\n");
-		return GPIO_INVALID_RESOURCE;
-	}
-
-	//开始捕获
-	fd = gpio_open(pin_number);
-	if (fd < 0) {
-		perror("open failed!\n");
-		return -1;
-	}
-
-	return fd;
+  int fd = -1;
+  //导出io
+  if (GPIO_SUCCESS != gpio_export(pin_number))
+    perror("gpio_export failed!\n");
+  //配置成输入
+  if (gpio_set_direction(pin_number, GPIO_INPUT) != GPIO_SUCCESS) {
+    perror("open direction failed!\n");
+    return GPIO_INVALID_RESOURCE;
+  }
+  //边沿触发
+  if (GPIO_SUCCESS != gpio_set_edge(pin_number, GPIO_EDGE_BOTH)) {
+    perror("open edge failed!\n");
+    return GPIO_INVALID_RESOURCE;
+  }
+  //开始捕获
+  fd = gpio_open(pin_number);
+  if (fd < 0) {
+    perror("open failed!\n");
+    return -1;
+  }
+  return fd;
 }

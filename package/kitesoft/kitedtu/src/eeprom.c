@@ -246,7 +246,7 @@ static void ParameterCheck(void)
 {
   if (m_Parameter.ReportInterval == 0 || m_Parameter.ReportInterval > 180)
     m_Parameter.ReportInterval = 60;
-  if (m_Parameter.RunDelay == 0 || m_Parameter.RunDelay > 30000)
+  if (m_Parameter.RunDelay == 0 || m_Parameter.RunDelay > 60000)
     m_Parameter.RunDelay = 3000;
 }
 static void SaveParameter(void)

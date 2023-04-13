@@ -1,6 +1,6 @@
 #ifndef __GPIO_H__
 #define __GPIO_H__
- 
+
 /* GPIO value */
 #define GPIO_HIGH     1
 #define GPIO_LOW      0
@@ -12,10 +12,10 @@
 #define GPIO_OUTPUT_LOW  3
 
 /* GPIO intc edge */
-#define GPIO_EDGE_NONE		0	// 非中断引脚
-#define GPIO_EDGE_RISING	1	// 上升沿触发
-#define GPIO_EDGE_FALLING	2	// 下降沿触发
-#define GPIO_EDGE_BOTH		3	// 边沿触发
+#define GPIO_EDGE_NONE    0 // 非中断引脚
+#define GPIO_EDGE_RISING  1 // 上升沿触发
+#define GPIO_EDGE_FALLING 2 // 下降沿触发
+#define GPIO_EDGE_BOTH    3 // 边沿触发
 
 /* GPIO error code */
 #define GPIO_SUCCESS            1
@@ -23,7 +23,7 @@
 #define GPIO_ERROR_READ        -2
 #define GPIO_ERROR_WRITE       -3
 #define GPIO_ERROR_DIRECTION   -4
-#define GPIO_ERROR_EDGE		   -5
+#define GPIO_ERROR_EDGE      -5
 
 int gpio_is_exported(int pin_number);
 int gpio_export(int pin_number);
@@ -45,5 +45,6 @@ int gpio_open_irq(int pin_number, int edge);
 #define GPIO19  499
 #define GPIO39  455
 #define GPIO40  456
+#define GPIO41  457
 
 #endif // __GPIO_H__

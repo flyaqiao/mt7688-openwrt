@@ -360,6 +360,43 @@ void CommThread(void *arg);
 void InitCache();
 void HttpInit();
 void report_state(void);
+int MqttGetConnected();
+static void LedThread(void *arg)
+{
+  int i;
+  int err_flag = 0;
+  gpio_set_direction(GPIO41, GPIO_OUTPUT);
+  if (access("/sys/bus/i2c/devices/0-0050/eeprom", 0) == -1)
+    err_flag = 1;
+  else if (access("/sys/bus/i2c/devices/0-0051/rtc", 0) == -1)
+    err_flag = 2;
+  while (1) {
+    if (err_flag) {
+      for (i = 0; i < err_flag + 2; i++) {
+        gpio_write(GPIO41, 0);
+        Sleep(250);
+        gpio_write(GPIO41, 1);
+        Sleep(250);
+      }
+    } else {
+      if (MqttGetConnected()) {
+        gpio_write(GPIO41, 0);
+        Sleep(250);
+        gpio_write(GPIO41, 1);
+        Sleep(250);
+      } else {
+        for (i = 0; i < 2; i++) {
+          gpio_write(GPIO41, 0);
+          Sleep(250);
+          gpio_write(GPIO41, 1);
+          Sleep(250);
+        }
+      }
+    }
+    gpio_write(GPIO41, 1);
+    Sleep(3000);
+  }
+}
 int main(int argc, char **argv)
 {
   /* close printf buffer */
@@ -388,6 +425,7 @@ int main(int argc, char **argv)
   StartBackgroudTask(GpioThread, (void *)0, 66);
   StartBackgroudTask(InputThread, (void *)0, 65);
   StartBackgroudTask(MqttThread, (void *)0, 64);
+  StartBackgroudTask(LedThread, (void *)0, 59);
   while (1) {
     struct timeval now;
     struct timespec abstime;
