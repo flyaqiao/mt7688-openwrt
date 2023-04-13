@@ -79,6 +79,6 @@ ap)
 	echo "		wifimode sta 	[ssid] [key]"
 	echo "		wifimode ap"
 esac
-wifi up
+#wifi up
 fi
 
