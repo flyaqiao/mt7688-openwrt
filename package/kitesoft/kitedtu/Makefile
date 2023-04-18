@@ -36,6 +36,7 @@ endef
 # much easier to do it this way.
 define Build/Prepare
 	mkdir -p $(PKG_BUILD_DIR)
+	sh ./files/mkfs.sh
 	sh ./mkver.sh
 	$(CP) ./src/* $(PKG_BUILD_DIR)/
 endef
