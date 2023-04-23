@@ -71,8 +71,8 @@ static void my_connect_callback(struct mosquitto *mosq, void *obj, int rc)
     if (MqttSubscribe("cmd", 0) == 0)
       m_bConnected = 0;
     time(&tt);
-    sprintf(szData, "{\"date\":%ld,\"lat\":\"%s\",\"long\":\"%s\",\"ver\":%d,\"MachType\":%d,\"Times\":%d,\"hashver\":\"%s\"}",
-            tt, m_Parameter.latitude, m_Parameter.longitude, SVNVERSION, m_Parameter.MachType, times++, GITVERSION);
+    sprintf(szData, "{\"date\":%ld,\"lat\":\"%s\",\"long\":\"%s\",\"ver\":%d,\"MachType\":%d,\"Times\":%d,\"major_ver\":%d,\"hashver\":\"%s\"}",
+            tt, m_Parameter.latitude, m_Parameter.longitude, MINOR_VER, m_Parameter.MachType, times++, MAJOR_VER, HASH_VER);
     MqttPublish(NULL, "reg", szData, 1);
     log_i("Mqtt connected");
   }
@@ -251,8 +251,8 @@ void MqttThread(void *arg)
       mosquitto_publish_callback_set(m_mosq, my_publish_callback);
       mosquitto_message_callback_set(m_mosq, my_message_callback);
       //mosquitto_log_callback_set(m_mosq, my_log_callback);
-      if (strlen(m_Parameter.CCID) > 4)
-        strcpy(szMqttUser, m_Parameter.CCID + 4);
+      if (strlen(m_Parameter.CCID))
+        strcpy(szMqttUser, m_Parameter.CCID);
       else
         strcpy(szMqttUser, m_Parameter.MACID);
       if (strlen(m_Parameter.MqttPwd) == 0) {

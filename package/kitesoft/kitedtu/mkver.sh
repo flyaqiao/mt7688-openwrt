@@ -3,15 +3,17 @@
 work_path=$(dirname $(readlink -f $0))
 echo $work_path
 VER_FILE="${work_path}/src/version.h"
-SVNVER=`git rev-list HEAD | wc -l | awk '{print $1}'`
-GITVER="$(git rev-list HEAD -n 1 | cut -c 1-7)"
+MAJOR_VER=`git describe --tags | sed 's/V\(.*\)-\(.*\)-g\(.*\)/\1/'`
+MINOR_VER=`git describe --tags | sed 's/V\(.*\)-\(.*\)-g\(.*\)/\2/'`
+HASH_VER=`git describe --tags | sed 's/V\(.*\)-\(.*\)-g\(.*\)/\3/'`
 
 echo "Generated" $VER_FILE
 echo "#ifndef __VERSION_H__" > $VER_FILE
 echo "#define __VERSION_H__" >> $VER_FILE
 echo "" >> $VER_FILE
-echo "#define SVNVERSION $SVNVER" >> $VER_FILE
-echo "#define GITVERSION \"$GITVER\"" >> $VER_FILE
+echo "#define MAJOR_VER $MAJOR_VER" >> $VER_FILE
+echo "#define MINOR_VER $MINOR_VER" >> $VER_FILE
+echo "#define HASH_VER \"$HASH_VER\"" >> $VER_FILE
 echo "" >> $VER_FILE
 echo "#endif" >> $VER_FILE
 

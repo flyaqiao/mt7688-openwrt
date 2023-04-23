@@ -1,5 +1,5 @@
 #! /bin/sh
-SVNVER=`git rev-list HEAD | wc -l | awk '{print $1}'`
+SVNVER=`git describe --tags | sed 's/V\(.*\)-\(.*\)-g\(.*\)/\2/'`
 UPGDIR=/home/flyaqiao/nfsroot/civetweb/web/www/kitedtu/$SVNVER
 mkdir -p $UPGDIR
 UPGFILE=$UPGDIR/kitedtu.ipk

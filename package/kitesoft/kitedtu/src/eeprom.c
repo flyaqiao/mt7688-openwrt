@@ -308,7 +308,7 @@ void LoadParameter(void)
   }
   ParameterCheck();
   log_i("MAC:%s CCID:%s", m_Parameter.MACID, m_Parameter.CCID);
-  log_i("MachType = %d ReportInterval = %d RunDelay = %d Version = %d", m_Parameter.MachType, m_Parameter.ReportInterval, m_Parameter.RunDelay, SVNVERSION);
+  log_i("MachType = %d ReportInterval = %d RunDelay = %d Version = %d.%d", m_Parameter.MachType, m_Parameter.ReportInterval, m_Parameter.RunDelay, MAJOR_VER, MINOR_VER);
 }
 void SetMqttPwd(char *pwd)
 {

@@ -17,7 +17,7 @@
 </head>
 
 <body>
-  <h1 style="text-align:center;">Welcome to KiteDTU</h1>
+  <h1 id="title" name="title" style="text-align:center;">Welcome to KiteDTU</h1>
   <div style="text-align:center;">
     <table border="0px" cellpadding="10px" style="margin: auto">
       <tr>
@@ -234,6 +234,7 @@
       //document.getElementByName('wifienc')[0].SelectedIndex = 2;
       document.getElementsByName("mac")[0].innerHTML = pro.MACID;
       document.getElementsByName("ccid")[0].innerHTML = pro.CCID;
+      document.getElementsByName("title")[0].innerHTML = "Welcome to KiteDTU " + pro.major + "." + pro.minor;
       var qrcode = new QRCode(document.getElementById("qrcode"), {
         width: 140, //设置宽高
         height: 140

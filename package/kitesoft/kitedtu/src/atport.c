@@ -132,7 +132,7 @@ void GprsGetLocation(void)
     return;
   if (ccid_ok == 0 && at_send_printf(buf, sizeof(buf), "AT*I\r\n") > 0) {
     char *p = strstr(buf, "CCID");
-    if (p && sscanf(p, "%*[^:]: %s", m_Parameter.CCID) == 1) {
+    if (p && sscanf(p, "%*[^:]: %*4d%s", m_Parameter.CCID) == 1) {
       int MqttReconnect();
       log_i("CCID: %s", m_Parameter.CCID);
       MqttReconnect();

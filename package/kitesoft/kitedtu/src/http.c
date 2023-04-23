@@ -9,6 +9,7 @@
 #include "cJSON.h"
 #include "SysCall.h"
 #include "typedef.h"
+#include "version.h"
 #define LOG_TAG "HTTP"
 #include <elog.h>
 
@@ -202,9 +203,10 @@ static void cb(struct mg_connection *c, int ev, void *ev_data, void *fn_data)
         trim(m_wifipwd);
         trim(m_wifienc);
       }
-      mg_http_reply(c, 200, NULL, "{%Q:%Q,%Q:%Q,%Q:%Q,%Q:%Q,%Q:%Q,%Q:%Q,%Q:%d,%Q:%Q,%Q:%Q}\n", "wifissid", m_wifissid, "wifipwd",
+      mg_http_reply(c, 200, NULL, "{%Q:%Q,%Q:%Q,%Q:%Q,%Q:%Q,%Q:%Q,%Q:%Q,%Q:%d,%Q:%Q,%Q:%Q,%Q:%d,%Q:%d}\n", "wifissid", m_wifissid, "wifipwd",
                     m_wifipwd, "wifienc", m_wifienc, "mqttserver", m_Parameter.MqttServer, "authurl", m_Parameter.AuthUrl,
-                    "upgurl", m_Parameter.UpgUrl, "mqttport", m_Parameter.MqttPort, "MACID", m_Parameter.MACID, "CCID", m_Parameter.CCID);
+                    "upgurl", m_Parameter.UpgUrl, "mqttport", m_Parameter.MqttPort, "MACID", m_Parameter.MACID, "CCID",
+                    m_Parameter.CCID, "major", MAJOR_VER, "minor", MINOR_VER);
       return;
     } else if (mg_http_match_uri(hm, "/api/config/reset")) {
       StartBackgroudTask(ASyncCallShellCmd, (void *)1, 10);
