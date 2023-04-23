@@ -181,7 +181,7 @@ detect_mac80211() {
 			set wireless.ap${devidx}.device=radio${devidx}
 			set wireless.ap${devidx}.network=lan
 			set wireless.ap${devidx}.mode=ap
-			set wireless.ap${devidx}.ssid=KITEDTU_$(cat /sys/class/ieee80211/${dev}/macaddress|awk -F ":" '{print $4""$5""$6 }'| tr a-z A-Z)
+			set wireless.ap${devidx}.ssid=HINCDTU_$(cat /sys/class/ieee80211/${dev}/macaddress|awk -F ":" '{print $4""$5""$6 }'| tr a-z A-Z)
 			set wireless.ap${devidx}.encryption=none
 			set wireless.ap${devidx}.disabled=0
 

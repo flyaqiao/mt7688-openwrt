@@ -13,7 +13,7 @@ apsta)
 	uci set wireless.ap0.device='radio0'
 	uci set wireless.ap0.network='lan'
 	uci set wireless.ap0.mode='ap'                                               
-	uci set wireless.ap0.ssid="KITEDTU"
+#	uci set wireless.ap0.ssid="HINCDTU"
 	uci set wireless.ap0.encryption='none'
 
 	uci set wireless.sta0=wifi-iface
