@@ -15,6 +15,8 @@
 #include <elog.h>
 
 #define KEEP_ALIVE 60
+//#define EXEC_SUPPORT
+#define FRPC_SUPPORT
 
 int HttpPost(char *send_data, char *url);
 void PublishAck(int msgId);
@@ -68,8 +70,14 @@ static void my_connect_callback(struct mosquitto *mosq, void *obj, int rc)
       m_bConnected = 0;
     if (MqttSubscribe("state/get", 0) == 0)
       m_bConnected = 0;
+#ifdef EXEC_SUPPORT
     if (MqttSubscribe("cmd", 0) == 0)
       m_bConnected = 0;
+#endif
+#ifdef FRPC_SUPPORT
+    if (MqttSubscribe("frp", 0) == 0)
+      m_bConnected = 0;
+#endif
     time(&tt);
     sprintf(szData, "{\"date\":%ld,\"lat\":\"%s\",\"long\":\"%s\",\"ver\":%d,\"MachType\":%d,\"Times\":%d,\"major_ver\":%d,\"hashver\":\"%s\"}",
             tt, m_Parameter.latitude, m_Parameter.longitude, MINOR_VER, m_Parameter.MachType, times++, MAJOR_VER, HASH_VER);
@@ -166,8 +174,27 @@ static int asyncupgrade(char *url, int ver, char *script)
 #ifndef WIN31
   char cmd[128];
   sprintf(cmd, "wget -q -O- %s%d/%s | sh &", url, ver, script);
+  log_w("exec: %s", cmd);
   system(cmd);
 #endif
+}
+static void RestartFrpc(char *token)
+{
+  char szCmdResult[256];
+  char cmd[128];
+  execmd("uci set frpc.common.tls_enable=true", szCmdResult, sizeof(szCmdResult));
+  execmd("uci set frpc.common.server_addr=frp.kitesoft.cn", szCmdResult, sizeof(szCmdResult));
+  execmd("uci set frpc.common.server_port=7000", szCmdResult, sizeof(szCmdResult));
+  sprintf(cmd, "uci set frpc.common.token=%s", token);
+  execmd(cmd, szCmdResult, sizeof(szCmdResult));
+  execmd("uci delete frpc.ssh", szCmdResult, sizeof(szCmdResult));
+  execmd("uci set frpc.telnet=conf", szCmdResult, sizeof(szCmdResult));
+  execmd("uci set frpc.telnet.type=tcp", szCmdResult, sizeof(szCmdResult));
+  execmd("uci set frpc.telnet.local_ip=127.0.0.1", szCmdResult, sizeof(szCmdResult));
+  execmd("uci set frpc.telnet.local_port=23", szCmdResult, sizeof(szCmdResult));
+  execmd("uci set frpc.telnet.remote_port=6000", szCmdResult, sizeof(szCmdResult));
+  execmd("uci commit", szCmdResult, sizeof(szCmdResult));
+  execmd("/etc/init.d/frpc restart", szCmdResult, sizeof(szCmdResult));
 }
 static void my_message_callback(struct mosquitto *mosq, void *obj, const struct mosquitto_message *msg)
 {
@@ -210,11 +237,19 @@ static void my_message_callback(struct mosquitto *mosq, void *obj, const struct 
         set_state_report(1);
       else
         set_state_report(0);
+#ifdef EXEC_SUPPORT
     } else if (strcmp(szTopic, "cmd") == 0) {
       char szCmdResult[4096];
       memset(szCmdResult, 0, sizeof(szCmdResult));
+      log_w("exec: %s", msg->payload);
       execmd(msg->payload, szCmdResult, sizeof(szCmdResult));
+      log_w("result: %s", szCmdResult);
       MqttPublish(NULL, "cmd/ack", szCmdResult, 0);
+#endif
+#ifdef FRPC_SUPPORT
+    } else if (strcmp(szTopic, "frp") == 0) {
+      RestartFrpc(szMqttUser);
+#endif
     }
   }
 }
@@ -271,6 +306,7 @@ void MqttThread(void *arg)
         log_e("Connect server error[%d]!(%s,%s,%s)", ret, m_Parameter.MACID, szMqttUser, m_Parameter.MqttPwd);
         Sleep(6000);
       }
+      RestartFrpc(szMqttUser);
       Sleep(1000);
     } else if (m_bConnected > 1) {
       mosquitto_disconnect(m_mosq);
