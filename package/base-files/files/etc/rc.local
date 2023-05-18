@@ -6,14 +6,5 @@ if [[  -f /etc/asound.state ]] && [[ -x /usr/sbin/alsactl ]]; then
 fi
 hwclock -s -u
 
-MOUNT_PATH="/mnt/mmc"
-DEV_PATH="/dev/mmcblk0p1"
-
-if [ -b "${DEV_PATH}" ] ;then
-      if [ ! -d "${MOUNT_PATH}" ]; then
-              /bin/mkdir -p ${MOUNT_PATH}
-      fi
-      /bin/mount -o iocharset=utf8 -t vfat ${DEV_PATH} ${MOUNT_PATH}
-fi
 exit 0
 
